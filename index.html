@@ -284,10 +284,10 @@ html,body{margin:0;background:var(--color-bg);color:var(--color-fg)}
   };
   const splitOf = (r) => { try { return JSON.parse(r.contractor_split); } catch (e) { return [[r.contractors, r.awarded_value]]; } };
   const aySet = (p) => (p.ay ? String(p.ay).split(',').filter(Boolean) : []);
-  const filtered = () => {
+  const filtered = (pOver) => {
     const rows = all();
     if (!rows) return null;
-    const p = dash.params();
+    const p = pOver || dash.params();
     const q = (p.q || '').toString().trim().toLocaleLowerCase('el');
     const vmin = p.vmin == null || p.vmin === '' ? null : +p.vmin;
     const ays = aySet(p);
@@ -347,10 +347,15 @@ html,body{margin:0;background:var(--color-bg);color:var(--color-fg)}
 
   // ---------- data-driven selects ----------
   const selectDraw = (name, param, allLabel, valuesFn, labelFn) => dash.draw(name, (sel) => {
-    const rows = all();
+    // Οι επιλογές κάθε λίστας ακολουθούν τα υπόλοιπα φίλτρα (π.χ. έτη → μόνο ανάδοχοι με έργα σε αυτά).
+    const cur = dash.params();
+    const clear = {[param]: null};
+    if (param === 'm1' || param === 'm2') { clear.m1 = null; clear.m2 = null; }
+    const rows = all() ? filtered(Object.assign({}, cur, clear)) : null;
     const vals = rows ? valuesFn(rows) : [];
-    sel.replaceChildren(new Option(allLabel, ''), ...vals.map((v) => new Option(labelFn ? labelFn(v) : v, v)));
-    sel.value = dash.params()[param] ?? '';
+    if (cur[param] && !vals.includes(cur[param])) vals.unshift(cur[param]);
+    sel.replaceChildren(new Option(allLabel + (rows ? ' (' + int.format(vals.length) + ')' : ''), ''), ...vals.map((v) => new Option(labelFn ? labelFn(v) : v, v)));
+    sel.value = cur[param] ?? '';
     sel.onchange = () => dash.setParams({[param]: sel.value || null});
   });
   const uniq = (rows, f) => Array.from(new Set(rows.map(f))).sort((a, b) => a.localeCompare(b, 'el'));
