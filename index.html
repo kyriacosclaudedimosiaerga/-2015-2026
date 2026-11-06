@@ -78,13 +78,20 @@ html,body{margin:0;background:var(--color-bg);color:var(--color-fg)}
 .pe-filters label { display: flex; flex-direction: column; gap: var(--cds-gap-xs); font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); min-width: 0; }
 .pe-filters select, .pe-filters input[type=text], .pe-filters input[type=number] { font: inherit; font-size: var(--cds-font-size-body); color: var(--color-fg); background: var(--color-bg); border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); padding: var(--cds-pad-xs) var(--cds-pad-sm); min-width: 0; width: 100%; box-sizing: border-box; }
 .pe-pair { display: flex; gap: var(--cds-gap-xs); }
-.pe-years-wrap { grid-column: 1 / -1; display: flex; flex-direction: column; gap: var(--cds-gap-xs); font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
-.pe-years { display: flex; flex-wrap: wrap; gap: var(--cds-gap-xs); align-items: center; }
-.pe-years label { display: inline-flex; flex-direction: row; align-items: center; gap: 6px; font-size: var(--cds-font-size-body); color: var(--color-fg); border: 1px solid var(--color-border-line); border-radius: 999px; padding: 3px 12px 3px 8px; cursor: pointer; background: var(--color-bg); }
-.pe-years label.on { border-color: var(--color-fg-muted); background: var(--color-panel); font-weight: var(--cds-font-weight-medium); }
-.pe-years input { margin: 0; accent-color: #c96442; }
-.pe-years button { font: inherit; font-size: var(--cds-font-size-caption); background: none; border: 0; color: var(--color-fg-muted); text-decoration: underline; cursor: pointer; padding: 3px 6px; }
-.pe-years button:disabled { text-decoration: none; cursor: default; }
+.pe-years-wrap { display: flex; flex-direction: column; gap: 4px; font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
+.pe-years { position: relative; }
+.pe-ay-btn { font: inherit; font-size: var(--cds-font-size-body); color: var(--color-fg); background: var(--color-bg); border: 1px solid var(--color-border-line); border-radius: 6px; padding: 6px 10px; width: 100%; min-width: 180px; text-align: left; cursor: pointer; display: flex; align-items: center; gap: 6px; }
+.pe-ay-btn .pe-ay-lbl { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pe-ay-btn::after { content: "▾"; color: var(--color-fg-muted); }
+.pe-ay-btn[aria-expanded=true]::after { content: "▴"; }
+.pe-ay-panel { position: absolute; z-index: 30; top: calc(100% + 4px); left: 0; min-width: 220px; max-height: 440px; overflow: auto; background: var(--color-bg); border: 1px solid var(--color-border-line); border-radius: 8px; box-shadow: 0 6px 20px rgba(0,0,0,.15); padding: 6px; }
+.pe-ay-panel label { display: flex; flex-direction: row; align-items: center; gap: 8px; font-size: var(--cds-font-size-body); color: var(--color-fg); padding: 5px 8px; border-radius: 5px; cursor: pointer; }
+.pe-ay-panel label:hover { background: var(--color-panel); }
+.pe-ay-panel input { margin: 0; accent-color: #c96442; }
+.pe-ay-sw { width: 14px; height: 14px; border-radius: 3px; flex: none; }
+.pe-ay-tools { display: flex; gap: 6px; border-top: 1px solid var(--color-border-line); margin-top: 4px; padding-top: 6px; }
+.pe-ay-tools button { font: inherit; font-size: var(--cds-font-size-caption); background: var(--color-panel); border: 1px solid var(--color-border-line); color: var(--color-fg); border-radius: 5px; padding: 4px 8px; cursor: pointer; }
+.pe-ay-chip { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 2px; }
 .pe-pdfrow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 8px 0 0; }
 .pe-pdfbtn { font: inherit; font-size: 14px; padding: 7px 14px; border-radius: 8px; border: 1px solid #c96442; background: #c96442; color: #fff; cursor: pointer; }
 .pe-pdfbtn[disabled] { opacity: .6; cursor: default; }
@@ -151,7 +158,7 @@ html,body{margin:0;background:var(--color-bg);color:var(--color-fg)}
     <p class="pe-note">Συνδυάστε όσα θέλετε· όλα τα σύνολα, τα γραφήματα και ο πίνακας ενημερώνονται αμέσως. Κλικ σε Αναθέτουσα Αρχή, ανάδοχο ή μήνα τα επιλέγει ως φίλτρο.</p>
     <div class="pe-filters">
       <div class="pe-years-wrap" role="group" aria-label="Έτη ανάθεσης">
-        <span>Έτη ανάθεσης: επιλέξτε ένα ή περισσότερα</span>
+        <span>Έτη ανάθεσης (ένα ή περισσότερα)</span>
         <div class="pe-years" data-draw="f-ay" data-source="works"></div>
       </div>
       <label>Αναζήτηση στον τίτλο
@@ -383,22 +390,56 @@ html,body{margin:0;background:var(--color-bg);color:var(--color-fg)}
   selectDraw('f-eo', 'eo', 'Όλοι', (rows) => Array.from(new Set(rows.flatMap((r) => splitOf(r).map((x) => x[0])))).sort((a, b) => a.localeCompare(b, 'el')));
   selectDraw('f-m1', 'm1', 'Από αρχή', (rows) => uniq(rows, (r) => r.award_month).sort(), monthLabel);
   selectDraw('f-m2', 'm2', 'Έως τέλος', (rows) => uniq(rows, (r) => r.award_month).sort(), monthLabel);
+  function yearColor(y) {
+    const ys = (window.__ayYears || []);
+    const i = ys.indexOf(String(y));
+    const t = ys.length > 1 && i >= 0 ? i / (ys.length - 1) : 1;
+    return t < 0.5 ? d3.interpolateLab('#f0b48a', '#c96442')(t * 2) : d3.interpolateLab('#c96442', '#6b2210')((t - 0.5) * 2);
+  }
+  if (!window.__ayDocClick) {
+    window.__ayDocClick = true;
+    document.addEventListener('click', (e) => {
+      if (!window.__ayOpen) return;
+      if (e.target.closest && e.target.closest('.pe-years')) return;
+      window.__ayOpen = false;
+      document.querySelectorAll('.pe-ay-panel').forEach((p) => { p.hidden = true; });
+      document.querySelectorAll('.pe-ay-btn').forEach((b) => b.setAttribute('aria-expanded', 'false'));
+    });
+  }
   dash.draw('f-ay', (box) => {
     box.replaceChildren();
     const rows = all();
     if (!rows) { box.textContent = '—'; return; }
-    const years = uniq(rows, (r) => r.award_month.slice(0, 4)).sort().reverse();
+    const asc = uniq(rows, (r) => r.award_month.slice(0, 4)).sort();
+    window.__ayYears = asc;
+    const years = asc.slice().reverse();
     const sel = aySet(dash.params());
     const set = (list) => dash.setParams({ay: list.length ? list.slice().sort().join(',') : null, m1: null, m2: null});
+    const btn = document.createElement('button'); btn.type = 'button'; btn.className = 'pe-ay-btn';
+    btn.setAttribute('aria-haspopup', 'true'); btn.setAttribute('aria-expanded', window.__ayOpen ? 'true' : 'false');
+    const lbl = document.createElement('span'); lbl.className = 'pe-ay-lbl';
+    if (!sel.length) lbl.textContent = 'Όλα τα έτη';
+    else {
+      const s = sel.slice().sort();
+      if (s.length > 4) lbl.append(document.createTextNode(s.length + ' έτη: ' + s[0] + '…' + s[s.length - 1]));
+      else s.forEach((y, i) => { const c = document.createElement('i'); c.className = 'pe-ay-chip'; c.style.background = yearColor(y); lbl.append(c, document.createTextNode(y + (i < s.length - 1 ? ', ' : ''))); });
+    }
+    btn.appendChild(lbl);
+    const panel = document.createElement('div'); panel.className = 'pe-ay-panel'; panel.hidden = !window.__ayOpen;
+    btn.onclick = () => { window.__ayOpen = panel.hidden; panel.hidden = !panel.hidden; btn.setAttribute('aria-expanded', String(!panel.hidden)); };
     years.forEach((y) => {
-      const lab = document.createElement('label'); if (sel.includes(y)) lab.className = 'on';
+      const lab = document.createElement('label');
       const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = sel.includes(y);
       cb.onchange = () => set(cb.checked ? sel.concat(y) : sel.filter((x) => x !== y));
-      lab.append(cb, document.createTextNode(y)); box.appendChild(lab);
+      const sw = document.createElement('span'); sw.className = 'pe-ay-sw'; sw.style.background = yearColor(y);
+      const n = rows.filter((r) => r.award_month.slice(0, 4) === y).length;
+      lab.append(cb, sw, document.createTextNode(y + ' (' + int.format(n) + ')')); panel.appendChild(lab);
     });
-    const b = document.createElement('button'); b.type = 'button';
-    b.textContent = sel.length ? 'Όλα τα έτη' : 'Κανένα επιλεγμένο = όλα τα έτη';
-    b.disabled = !sel.length; b.onclick = () => set([]); box.appendChild(b);
+    const tools = document.createElement('div'); tools.className = 'pe-ay-tools';
+    const ball = document.createElement('button'); ball.type = 'button'; ball.textContent = 'Όλα τα έτη'; ball.onclick = () => set([]);
+    const bok = document.createElement('button'); bok.type = 'button'; bok.textContent = 'Κλείσιμο'; bok.onclick = () => { window.__ayOpen = false; panel.hidden = true; btn.setAttribute('aria-expanded', 'false'); };
+    tools.append(ball, bok); panel.appendChild(tools);
+    box.append(btn, panel);
   });
   selectDraw('f-py', 'py', 'Όλα', (rows) => uniq(rows.filter((r) => r.published), (r) => r.published.slice(0, 4)).sort().reverse());
 
@@ -485,7 +526,7 @@ html,body{margin:0;background:var(--color-bg);color:var(--color-fg)}
     svg.append('g').selectAll('rect').data(data).join('rect')
       .attr('x', (d) => x(d.m) + (x.bandwidth() - bw) / 2).attr('width', bw)
       .attr('y', (d) => y(d.v)).attr('height', (d) => Math.max(0, y(0) - y(d.v))).attr('rx', 3)
-      .attr('fill', (d) => (inRange(d.m) ? dash.colors[0] : 'var(--cds-chart-muted)'))
+      .attr('fill', (d) => (inRange(d.m) ? yearColor(d.m.slice(0, 4)) : 'var(--cds-chart-muted)'))
       .style('cursor', 'pointer')
       .on('mousemove', (event, d) => tipShow(el, tip, [line('pe-tip-k', byYear ? d.m : monthLabel(d.m)), line('', eur0.format(d.v)), line('', int.format(d.n) + ' διαγωνισμοί')], event))
       .on('mouseleave', () => { tip.hidden = true; })
