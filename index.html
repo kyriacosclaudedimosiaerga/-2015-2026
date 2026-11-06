@@ -38,7 +38,7 @@ html,body{margin:0;background:var(--color-bg);color:var(--color-fg)}
 </script>
 <script>
 (function(){
- const DEF={q:null,aa:null,aat:null,cat:null,proc:null,eo:null,m1:null,m2:null,vmin:null,vmax:null,thr:null,eu:null,py:null,ay:null,hidesus:false};
+ const DEF={q:null,aa:null,aat:null,cat:null,proc:null,eo:null,m1:null,m2:null,vmin:null,vmax:null,thr:null,eu:null,py:null,ay:null,dist:null,hidesus:false};
  let params=Object.assign({},DEF);const draws=new Map();const ons=[];
  
  function runDraw(name){const fn=draws.get(name);if(!fn)return;document.querySelectorAll('[data-draw="'+name+'"]').forEach(el=>{try{fn(el)}catch(e){console.error(name,e)}});}
@@ -153,6 +153,9 @@ html,body{margin:0;background:var(--color-bg);color:var(--color-fg)}
       <label>Τύπος Αναθέτουσας Αρχής
         <select data-draw="f-aat" data-source="works" aria-label="Τύπος Αναθέτουσας Αρχής"></select>
       </label>
+      <label>Επαρχία έργου
+        <select data-draw="f-dist" data-source="works" aria-label="Επαρχία έργου"></select>
+      </label>
       <label>Κατηγορία έργου (κατά CPV)
         <select data-draw="f-cat" data-source="works" aria-label="Κατηγορία έργου"></select>
       </label>
@@ -262,6 +265,7 @@ html,body{margin:0;background:var(--color-bg);color:var(--color-fg)}
   </section>
 
   <p class="pe-note">Πηγή: eProcurement Κυπριακής Δημοκρατίας, Περιοχή Πληροφοριών › Στατιστικά — τα 9 αρχεία «Διαγωνισμοί που ανατέθηκαν μέσω του συστήματος eProcurement», από 1/1/2015 έως 31/10/2026 (το τελευταίο ανέβηκε 03/11/2026). Περιλαμβάνονται μόνο συμβάσεις με Είδος «Έργα»· από το 2026 αφαιρέθηκε μία δοκιμαστική εγγραφή του συστήματος. Τα αρχεία έως το 2020 δεν δίνουν τύπο Αναθέτουσας Αρχής, κριτήριο ανάθεσης, όριο ΕΕ, χρηματοδότηση ΕΕ και αριθμό προσφορών («Δεν αναφέρεται»)· τα 2019 και 2020 ούτε κωδικούς CPV. Τα στοιχεία δημοσιεύονται όπως καταχωρήθηκαν και μπορεί να περιέχουν λάθη ή παραλήψεις.</p>
+  <p class="pe-note">Η «Επαρχία έργου» δεν δίνεται από το eProcurement· προκύπτει αυτόματα από τον τίτλο του έργου και την Αναθέτουσα Αρχή (δήμος, κοινότητα, επαρχία). Όπου δεν αναφέρεται τοποθεσία εμφανίζεται «Δεν προσδιορίζεται».</p>
 </div>
 
 <script>
@@ -297,6 +301,7 @@ html,body{margin:0;background:var(--color-bg);color:var(--color-fg)}
       (!q || (r.title + ' ' + r.id).toLocaleLowerCase('el').includes(q)) &&
       (!p.aa || r.authority === p.aa) &&
       (!p.aat || r.authority_type === p.aat) &&
+      (!p.dist || (r.district || 'Δεν προσδιορίζεται') === p.dist) &&
       (!p.cat || r.category === p.cat) &&
       (!p.proc || r.procedure === p.proc) &&
       (!p.eo || splitOf(r).some((x) => x[0] === p.eo)) &&
@@ -361,6 +366,8 @@ html,body{margin:0;background:var(--color-bg);color:var(--color-fg)}
   const uniq = (rows, f) => Array.from(new Set(rows.map(f))).sort((a, b) => a.localeCompare(b, 'el'));
   selectDraw('f-aa', 'aa', 'Όλες', (rows) => uniq(rows, (r) => r.authority));
   selectDraw('f-aat', 'aat', 'Όλοι', (rows) => uniq(rows, (r) => r.authority_type));
+  const DORD = ['Λευκωσία', 'Λεμεσός', 'Λάρνακα', 'Πάφος', 'Αμμόχωστος', 'Κερύνεια', 'Περισσότερες επαρχίες', 'Δεν προσδιορίζεται'];
+  selectDraw('f-dist', 'dist', 'Όλες', (rows) => uniq(rows, (r) => r.district || 'Δεν προσδιορίζεται').sort((a, b) => DORD.indexOf(a) - DORD.indexOf(b)));
   selectDraw('f-cat', 'cat', 'Όλες', (rows) => uniq(rows, (r) => r.category));
   selectDraw('f-proc', 'proc', 'Όλες', (rows) => uniq(rows, (r) => r.procedure));
   selectDraw('f-eo', 'eo', 'Όλοι', (rows) => Array.from(new Set(rows.flatMap((r) => splitOf(r).map((x) => x[0])))).sort((a, b) => a.localeCompare(b, 'el')));
