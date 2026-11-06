@@ -3,7 +3,7 @@
 <title>Δημόσια Έργα</title>
 <meta name="robots" content="noindex,nofollow">
 <link rel="manifest" href="manifest.webmanifest">
-<meta name="theme-color" content="#c96442">
+<meta name="theme-color" content="#1f4e79">
 <link rel="apple-touch-icon" href="icon-180.png">
 <meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Δημόσια Έργα">
@@ -27,12 +27,12 @@ html,body{margin:0;background:var(--color-bg);color:var(--color-fg)}
 #gate label{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--color-fg-muted)}
 #gate input[type=text],#gate input[type=password]{font:inherit;font-size:16px;padding:10px 12px;border:1px solid var(--color-border-line);border-radius:8px;background:var(--color-bg);color:var(--color-fg)}
 #gate .rem{flex-direction:row;align-items:center;gap:8px;color:var(--color-fg)}
-#gate button{font:inherit;font-size:16px;padding:11px;border:0;border-radius:8px;background:#c96442;color:#fff;cursor:pointer}
+#gate button{font:inherit;font-size:16px;padding:11px;border:0;border-radius:8px;background:#1f4e79;color:#fff;cursor:pointer}
 #gate button[disabled]{opacity:.6}
 #gate .err{color:var(--color-bad);min-height:1.2em}
 #appbar{display:flex;justify-content:space-between;align-items:center;gap:8px;max-width:1400px;margin:0 auto;padding:10px 16px 0;font-family:var(--font-anthropic-sans);font-size:13px;color:var(--color-fg-muted)}
 #appbar .acts{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
-#appbar button.primary{background:#c96442;border-color:#c96442;color:#fff}
+#appbar button.primary{background:#1f4e79;border-color:#1f4e79;color:#fff}
 #appbar button{font:inherit;font-size:13px;background:none;border:1px solid var(--color-border-line);border-radius:8px;padding:4px 10px;color:var(--color-fg);cursor:pointer}
 </style>
 <script>// https://d3js.org v7.9.0 Copyright 2010-2023 Mike Bostock
@@ -87,13 +87,13 @@ html,body{margin:0;background:var(--color-bg);color:var(--color-fg)}
 .pe-ay-panel { position: absolute; z-index: 30; top: calc(100% + 4px); left: 0; min-width: 220px; max-height: 440px; overflow: auto; background: var(--color-bg); border: 1px solid var(--color-border-line); border-radius: 8px; box-shadow: 0 6px 20px rgba(0,0,0,.15); padding: 6px; }
 .pe-ay-panel label { display: flex; flex-direction: row; align-items: center; gap: 8px; font-size: var(--cds-font-size-body); color: var(--color-fg); padding: 5px 8px; border-radius: 5px; cursor: pointer; }
 .pe-ay-panel label:hover { background: var(--color-panel); }
-.pe-ay-panel input { margin: 0; accent-color: #c96442; }
+.pe-ay-panel input { margin: 0; accent-color: #1f4e79; }
 .pe-ay-sw { width: 14px; height: 14px; border-radius: 3px; flex: none; }
 .pe-ay-tools { display: flex; gap: 6px; border-top: 1px solid var(--color-border-line); margin-top: 4px; padding-top: 6px; }
 .pe-ay-tools button { font: inherit; font-size: var(--cds-font-size-caption); background: var(--color-panel); border: 1px solid var(--color-border-line); color: var(--color-fg); border-radius: 5px; padding: 4px 8px; cursor: pointer; }
 .pe-ay-chip { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 2px; }
 .pe-pdfrow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 8px 0 0; }
-.pe-pdfbtn { font: inherit; font-size: 14px; padding: 7px 14px; border-radius: 8px; border: 1px solid #c96442; background: #c96442; color: #fff; cursor: pointer; }
+.pe-pdfbtn { font: inherit; font-size: 14px; padding: 7px 14px; border-radius: 8px; border: 1px solid #1f4e79; background: #1f4e79; color: #fff; cursor: pointer; }
 .pe-pdfbtn[disabled] { opacity: .6; cursor: default; }
 @media print { .pe-pdfrow { display: none !important; } }
 .pe-check { flex-direction: row !important; align-items: center; color: var(--color-fg) !important; font-size: var(--cds-font-size-body) !important; }
@@ -231,9 +231,9 @@ html,body{margin:0;background:var(--color-bg);color:var(--color-fg)}
 
   <div class="pe-grid">
     <section class="pe-card" id="by-month">
-      <h2>Ανατεθείσα αξία ανά έτος (ή μήνα) ανάθεσης</h2>
-      <p class="pe-note">Τα επιλεγμένα έτη δίπλα-δίπλα (το 2026 έως τέλη Οκτωβρίου). Κλικ σε ένα έτος για να δείτε τους μήνες του.</p>
-      <div class="pe-chart" data-draw="c-month" data-source="works"></div>
+      <h2>Ανατεθείσα αξία ανά επαρχία</h2>
+      <p class="pe-note">Πού γίνονται τα έργα, με τα τρέχοντα φίλτρα (το 2026 έως τέλη Οκτωβρίου). Η επαρχία βρίσκεται από τον τίτλο και την Αναθέτουσα Αρχή. Κλικ σε επαρχία για φίλτρο.</p>
+      <div class="pe-chart" data-draw="c-dist" data-source="works"></div>
     </section>
     <section class="pe-card" id="by-category">
       <h2>Ανατεθείσα αξία ανά κατηγορία έργου</h2>
@@ -394,7 +394,7 @@ html,body{margin:0;background:var(--color-bg);color:var(--color-fg)}
     const ys = (window.__ayYears || []);
     const i = ys.indexOf(String(y));
     const t = ys.length > 1 && i >= 0 ? i / (ys.length - 1) : 1;
-    return d3.hsl(205 - 235 * t, 0.62, 0.80 - 0.08 * t).formatHex();
+    return d3.interpolateLab('#c6d4e1', '#0f2d4a')(t);
   }
   if (!window.__ayDocClick) {
     window.__ayDocClick = true;
@@ -537,6 +537,33 @@ html,body{margin:0;background:var(--color-bg);color:var(--color-fg)}
       });
   });
 
+  dash.draw('c-dist', (el) => {
+    el.replaceChildren();
+    const rows = filtered({...dash.params(), dist: null});
+    if (!rows) { el.textContent = '—'; return; }
+    const data = d3.rollups(rows, (v) => ({v: sum(v, (r) => r.awarded_value), n: v.length}), (r) => r.district || 'Δεν προσδιορίζεται')
+      .map(([k, o]) => ({k, v: o.v, n: o.n})).sort((a, b) => b.v - a.v);
+    if (!data.length) { el.textContent = ''; return; }
+    const total = sum(data, (d) => d.v) || 1;
+    const W = Math.max(280, el.clientWidth), rowH = 30, H = Math.max(60, data.length * rowH + 8);
+    const svg = d3.select(el).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`).attr('role', 'img');
+    const lab = svg.append('g');
+    let lw = 0;
+    data.forEach((d) => { const t = lab.append('text').attr('font-size', 12).text(d.k); lw = Math.max(lw, t.node().getComputedTextLength()); t.remove(); });
+    const valW = W < 420 ? 96 : 150;
+    const x = d3.scaleLinear([0, d3.max(data, (d) => d.v) || 1], [lw + 10, W - valW]);
+    const p = dash.params();
+    const tip = document.createElement('div'); tip.className = 'pe-tip'; tip.hidden = true; el.appendChild(tip);
+    const g = svg.append('g').selectAll('g').data(data).join('g').attr('transform', (d, i) => `translate(0,${4 + i * rowH})`).style('cursor', 'pointer')
+      .on('mousemove', (event, d) => tipShow(el, tip, [line('pe-tip-k', d.k), line('', eur0.format(d.v) + ' (' + Math.round(100 * d.v / total) + '%)'), line('', int.format(d.n) + ' διαγωνισμοί · μέση αξία ' + eurC.format(d.v / d.n))], event))
+      .on('mouseleave', () => { tip.hidden = true; })
+      .on('click', (event, d) => dash.setParams({dist: p.dist === d.k ? null : d.k}));
+    g.append('text').attr('x', 0).attr('y', rowH / 2 - 2).attr('dy', '0.32em').attr('font-size', 12).attr('fill', 'var(--color-fg)').text((d) => d.k);
+    g.append('rect').attr('x', x(0)).attr('y', 4).attr('height', rowH - 12).attr('width', (d) => Math.max(1, x(d.v) - x(0))).attr('rx', 3)
+      .attr('fill', (d) => (!p.dist || p.dist === d.k ? '#1f4e79' : 'var(--cds-chart-muted)'));
+    g.append('text').attr('x', (d) => x(d.v) + 6).attr('y', rowH / 2 - 2).attr('dy', '0.32em').attr('font-size', 11).attr('fill', 'var(--color-fg-muted)')
+      .text((d) => eurC.format(d.v) + ' · ' + int.format(d.n) + (W < 420 ? '' : ' διαγ.'));
+  });
   dash.draw('c-cat', (el) => {
     el.replaceChildren();
     const rows = filtered();
@@ -565,7 +592,7 @@ html,body{margin:0;background:var(--color-bg);color:var(--color-fg)}
       .on('click', (event, d) => dash.setParams({cat: p.cat === d.k ? null : d.k}));
     g.append('text').attr('x', 0).attr('y', rowH / 2 - 2).attr('dy', '0.32em').attr('font-size', 12).attr('fill', 'var(--color-fg)').text((d, i) => labels[i]);
     g.append('rect').attr('x', x(0)).attr('y', 3).attr('height', rowH - 10).attr('width', (d) => Math.max(1, x(d.v) - x(0))).attr('rx', 3)
-      .attr('fill', (d, i) => (!p.cat || p.cat === d.k ? dash.colors[0] : 'var(--cds-chart-muted)'));
+      .attr('fill', (d, i) => (!p.cat || p.cat === d.k ? '#1f4e79' : 'var(--cds-chart-muted)'));
     g.append('text').attr('x', (d) => x(d.v) + 6).attr('y', rowH / 2 - 2).attr('dy', '0.32em').attr('font-size', 11).attr('fill', 'var(--color-fg-muted)').text((d) => eurC.format(d.v));
   });
 
@@ -594,7 +621,7 @@ html,body{margin:0;background:var(--color-bg);color:var(--color-fg)}
     if (!rows) { el.textContent = '—'; return; }
     const items = d3.rollups(rows, (v) => ({v: sum(v, (r) => r.awarded_value), n: v.length}), (r) => r.authority)
       .map(([k, o]) => ({k, v: o.v, n: o.n})).sort((a, b) => b.v - a.v).slice(0, 10);
-    topList(el, items, 'aa', dash.colors[0]);
+    topList(el, items, 'aa', '#1f4e79');
   });
   dash.draw('top-eo', (el) => {
     const rows = filtered();
@@ -602,7 +629,7 @@ html,body{margin:0;background:var(--color-bg);color:var(--color-fg)}
     const m = new Map();
     rows.forEach((r) => splitOf(r).forEach(([k, a]) => { const o = m.get(k) || {v: 0, n: 0}; o.v += +a || 0; o.n += 1; m.set(k, o); }));
     const items = Array.from(m, ([k, o]) => ({k, v: o.v, n: o.n})).sort((a, b) => b.v - a.v).slice(0, 10);
-    topList(el, items, 'eo', dash.colors[1]);
+    topList(el, items, 'eo', '#6b8cae');
   });
 
   // ---------- main table ----------

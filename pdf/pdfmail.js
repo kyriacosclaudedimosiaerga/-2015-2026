@@ -106,7 +106,7 @@
     const header = (first) => {
       pg = new Page(); pages.push(pg); y = M;
       if (first) {
-        pg.rect(0, 0, W, 6, [0.79, 0.39, 0.26]);
+        pg.rect(0, 0, W, 6, [0.12, 0.31, 0.47]);
         pg.text(B, 'F2', 'Δημόσια Έργα — αναθέσεις στο eProcurement', 16, M, y + 16); y += 26;
         pg.text(R, 'F1', 'Ημερομηνία εξαγωγής: ' + now.toLocaleDateString('el-GR') + ' · Πηγή: eProcurement › Στατιστικά', 8, M, y); y += 13;
         for (const l of wrap(R, 'Φίλτρα: ' + filterText(params), 8.5, W - 2 * M, 3)) { pg.text(R, 'F1', l, 8.5, M, y); y += 11; }
@@ -114,7 +114,7 @@
         const kp = [['Διαγωνισμοί', intf.format(rows.length)], ['Ανατεθείσα αξία', '€' + eur.format(total)], ['Χωρίς τις ⚠ πιθανά λάθη', '€' + eur.format(totalOk)]];
         let x = M;
         for (const [k, v] of kp) {
-          pg.rect(x, y, 200, 34, [0.96, 0.95, 0.93]);
+          pg.rect(x, y, 200, 34, [0.93, 0.95, 0.97]);
           pg.text(R, 'F1', k, 7.5, x + 8, y + 12, [0.4, 0.4, 0.4]);
           pg.text(B, 'F2', v, 13, x + 8, y + 28);
           x += 210;
@@ -124,7 +124,7 @@
         pg.text(B, 'F2', 'Δημόσια Έργα — συνέχεια', 10, M, y + 8); y += 18;
       }
       // επικεφαλίδα πίνακα
-      pg.rect(M, y, W - 2 * M, 14, [0.27, 0.27, 0.27]);
+      pg.rect(M, y, W - 2 * M, 14, [0.12, 0.31, 0.47]);
       let x = M;
       for (const c of cols) {
         const tw = width(B, c.t, 7.5);
