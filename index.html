@@ -31,6 +31,8 @@ html,body{margin:0;background:var(--color-bg);color:var(--color-fg)}
 #gate button[disabled]{opacity:.6}
 #gate .err{color:var(--color-bad);min-height:1.2em}
 #appbar{display:flex;justify-content:space-between;align-items:center;gap:8px;max-width:1400px;margin:0 auto;padding:10px 16px 0;font-family:var(--font-anthropic-sans);font-size:13px;color:var(--color-fg-muted)}
+#appbar .acts{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+#appbar button.primary{background:#c96442;border-color:#c96442;color:#fff}
 #appbar button{font:inherit;font-size:13px;background:none;border:1px solid var(--color-border-line);border-radius:8px;padding:4px 10px;color:var(--color-fg);cursor:pointer}
 </style>
 <script>// https://d3js.org v7.9.0 Copyright 2010-2023 Mike Bostock
@@ -62,7 +64,7 @@ html,body{margin:0;background:var(--color-bg);color:var(--color-fg)}
  <div class="err" id="err" role="alert"></div>
 </form></div>
 <div id="app" hidden>
- <div id="appbar"><span id="who"></span><button type="button" id="logout">Αποσύνδεση</button></div>
+ <div id="appbar"><span id="who"></span><span class="acts"><button type="button" id="sendpdf" class="primary">📧 Αποστολή PDF με email</button><button type="button" id="logout">Αποσύνδεση</button></span></div>
  <div id="dash-root">
 <style>
 .pe { font-family: var(--font-anthropic-sans); display: flex; flex-direction: column; gap: var(--cds-gap-lg); }
@@ -608,6 +610,7 @@ html,body{margin:0;background:var(--color-bg);color:var(--color-fg)}
 
  </div>
 </div>
+<script src="pdf/pdfmail.js"></script>
 <script>
 (function(){
  const b64=(s)=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
@@ -645,6 +648,7 @@ html,body{margin:0;background:var(--color-bg);color:var(--color-fg)}
   }catch(e){ $('err').textContent = e.message==='auth' ? 'Λάθος όνομα χρήστη ή κωδικός.' : 'Δεν ήταν δυνατή η φόρτωση. Ελέγξτε τη σύνδεση στο internet.'; }
   btn.disabled=false;
  });
+ $('sendpdf').addEventListener('click',(e)=>window.peSendPdf(e.currentTarget));
  $('logout').addEventListener('click',()=>{store('pe_k',null);store('pe_u',null);location.reload();});
  const saved=get('pe_k');
  if(saved){ show(b64(saved),get('pe_u')).catch(()=>{store('pe_k',null);$('gate').hidden=false;$('app').hidden=true;}); }
