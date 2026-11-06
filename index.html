@@ -108,6 +108,9 @@ html,body{margin:0;background:var(--color-bg);color:var(--color-fg)}
 .pe-mini .pe-bar { height: 4px; border-radius: 2px; background: var(--cds-chart-muted); margin-top: 3px; }
 .pe-mini .pe-bar i { display: block; height: 100%; border-radius: 2px; }
 .pe-link { color: inherit; text-decoration: underline; text-decoration-color: var(--color-border-line); text-underline-offset: 2px; cursor: pointer; background: none; border: 0; padding: 0; font: inherit; text-align: left; }
+.pe-map { display: inline-block; margin: 3px 8px 0 0; padding: 2px 8px; border: 1px solid var(--color-border-line); border-radius: 999px; font-size: var(--cds-font-size-caption); color: var(--color-fg); text-decoration: none; white-space: nowrap; }
+.pe-map:hover { border-color: var(--color-fg-muted); }
+@media print { .pe-map { display: none !important; } }
 .pe-link:hover { text-decoration-color: currentColor; }
 .pe-tablebar { display: flex; justify-content: space-between; align-items: baseline; gap: var(--cds-gap-md); flex-wrap: wrap; margin-bottom: var(--cds-gap-sm); }
 .pe-scroll { max-height: 640px; overflow: auto; border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); }
@@ -272,7 +275,7 @@ html,body{margin:0;background:var(--color-bg);color:var(--color-fg)}
   </section>
 
   <p class="pe-note">Πηγή: eProcurement Κυπριακής Δημοκρατίας, Περιοχή Πληροφοριών › Στατιστικά — τα 9 αρχεία «Διαγωνισμοί που ανατέθηκαν μέσω του συστήματος eProcurement», από 1/1/2015 έως 31/10/2026 (το τελευταίο ανέβηκε 03/11/2026). Περιλαμβάνονται μόνο συμβάσεις με Είδος «Έργα»· από το 2026 αφαιρέθηκε μία δοκιμαστική εγγραφή του συστήματος. Τα αρχεία έως το 2020 δεν δίνουν τύπο Αναθέτουσας Αρχής, κριτήριο ανάθεσης, όριο ΕΕ, χρηματοδότηση ΕΕ και αριθμό προσφορών («Δεν αναφέρεται»)· τα 2019 και 2020 ούτε κωδικούς CPV. Τα στοιχεία δημοσιεύονται όπως καταχωρήθηκαν και μπορεί να περιέχουν λάθη ή παραλήψεις.</p>
-  <p class="pe-note">Η «Επαρχία έργου» δεν δίνεται από το eProcurement· προκύπτει αυτόματα από τον τίτλο του έργου και την Αναθέτουσα Αρχή (δήμος, κοινότητα, επαρχία). Όπου δεν αναφέρεται τοποθεσία εμφανίζεται «Δεν προσδιορίζεται».</p>
+  <p class="pe-note">Η «Επαρχία έργου» δεν δίνεται από το eProcurement· προκύπτει αυτόματα από τον τίτλο του έργου και την Αναθέτουσα Αρχή (δήμος, κοινότητα, επαρχία). Όπου δεν αναφέρεται τοποθεσία εμφανίζεται «Δεν προσδιορίζεται». Το κουμπί «📍 Οδηγίες Google Maps» οδηγεί στην κοινότητα/δήμο/οδό που αναφέρει το έργο (κατά προσέγγιση, όχι στο ακριβές εργοτάξιο)· εμφανίζεται μόνο όπου ο τίτλος δίνει τοποθεσία.</p>
 </div>
 
 <script>
@@ -583,7 +586,13 @@ html,body{margin:0;background:var(--color-bg);color:var(--color-fg)}
       const tc = td('title');
       const a = document.createElement('a'); a.href = r.link; a.target = '_blank'; a.rel = 'noopener'; a.textContent = r.title; tc.appendChild(a);
       if (r.suspect) { const f = document.createElement('span'); f.className = 'pe-flag'; f.textContent = '⚠ Πιθανό λάθος αξίας'; tc.appendChild(f); }
-      const sm = document.createElement('small'); sm.textContent = r.category + ' · δημοσ. ' + dateLabel(r.published) + (r.eu_funding === 'Ναι' ? ' · χρηματοδότηση ΕΕ' : '') + (r.threshold === 'Πάνω' ? ' · πάνω από όριο ΕΕ' : ''); tc.appendChild(sm);
+      if (r.place) {
+        const g = document.createElement('a'); g.className = 'pe-map'; g.target = '_blank'; g.rel = 'noopener';
+        g.href = 'https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(r.place);
+        g.textContent = '📍 Οδηγίες Google Maps'; g.title = 'Κατά προσέγγιση τοποθεσία: ' + r.place;
+        tc.appendChild(g);
+      }
+      const sm = document.createElement('small'); sm.textContent = (r.district && r.district !== 'Δεν προσδιορίζεται' ? r.district + ' · ' : '') + r.category + ' · δημοσ. ' + dateLabel(r.published) + (r.eu_funding === 'Ναι' ? ' · χρηματοδότηση ΕΕ' : '') + (r.threshold === 'Πάνω' ? ' · πάνω από όριο ΕΕ' : ''); tc.appendChild(sm);
       td('', r.authority);
       td('', r.contractors);
       td('pe-hide-narrow', r.procedure);
