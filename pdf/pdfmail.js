@@ -9,7 +9,10 @@
 
   async function loadFonts() {
     if (FONTS) return FONTS;
+    const emb = window.__PE_FONTS__;
+    const b64 = (x) => Uint8Array.from(atob(x), (c) => c.charCodeAt(0));
     const get = async (n) => {
+      if (emb) return {ttf: b64(emb[n].ttf), map: emb[n].map, used: new Map()};
       const [ttf, map] = await Promise.all([
         fetch('pdf/font-' + n + '.ttf').then((r) => r.arrayBuffer()),
         fetch('pdf/font-' + n + '.json').then((r) => r.json()),
@@ -240,7 +243,15 @@
       const file = new File([bytes], name, {type: 'application/pdf'});
       const subject = 'Δημόσια Έργα — ' + intf.format(rows.length) + ' διαγωνισμοί';
       const body = 'Σας επισυνάπτω PDF με τα δημόσια έργα (eProcurement).\nΦίλτρα: ' + filterText(dash.params());
-      if (navigator.canShare && navigator.canShare({files: [file]})) {
+      let dl = null;
+      try { dl = window.claude && window.claude.use ? await window.claude.use('downloads') : null; } catch (e) { dl = null; }
+      if (dl) {
+        try { await dl.save({filename: name, data: new Blob([bytes], {type: 'application/pdf'})}); }
+        catch (e) { if (e && e.code === 'declined') { btn.disabled = false; btn.textContent = label; return; } throw new Error(e && e.message ? e.message : 'Η λήψη δεν επιτράπηκε.'); }
+        if (confirm('Το PDF «' + name + '» αποθηκεύτηκε.\n\nΝα ανοίξει νέο email για να το επισυνάψετε;')) {
+          const a = document.createElement('a'); a.href = 'mailto:?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body + '\n\n(Επισυνάψτε το αρχείο ' + name + ')'); a.target = '_blank'; a.rel = 'noopener'; document.body.appendChild(a); a.click(); a.remove();
+        }
+      } else if (navigator.canShare && navigator.canShare({files: [file]})) {
         try { await navigator.share({files: [file], title: subject, text: body}); }
         catch (e) { if (e.name !== 'AbortError') throw e; }
       } else {
@@ -258,4 +269,5 @@
     btn.disabled = false; btn.textContent = label;
   }
   window.peSendPdf = sendPdf;
+  document.addEventListener('click', (e) => { const b = e.target.closest && e.target.closest('.pe-pdfbtn'); if (b && !b.disabled) window.peSendPdf(b); });
 })();
