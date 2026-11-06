@@ -290,7 +290,7 @@ html,body{margin:0;background:var(--color-bg);color:var(--color-fg)}
   const dateLabel = (d) => !d ? '—' : d.slice(8, 10) + '/' + d.slice(5, 7) + '/' + d.slice(0, 4);
   const big = (v) => (Math.abs(v) >= 1e5 ? eurC.format(v) : eur0.format(v));
 
-  const P = window.peState = window.peState || {sort: 'awarded', dir: -1};
+  const P = window.peState = window.peState || {sort: 'awarded_value', dir: -1};
 
   const all = () => {
     const d = dash.data('works');

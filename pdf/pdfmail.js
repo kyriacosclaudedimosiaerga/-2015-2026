@@ -227,7 +227,7 @@
   async function makePdf() {
     const F = await loadFonts();
     F.r.used = new Map(); F.b.used = new Map();
-    const rows = (window.peFiltered() || []).slice().sort((a, b) => (b.awarded || '').localeCompare(a.awarded || ''));
+    const rows = (window.peFiltered() || []).slice().sort((a, b) => (b.awarded_value || 0) - (a.awarded_value || 0));
     const pages = build(rows, dash.params(), F);
     return {bytes: await writePdf(pages, F), rows};
   }
