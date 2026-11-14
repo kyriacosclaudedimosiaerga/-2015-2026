@@ -282,7 +282,7 @@ html,body{margin:0;background:var(--color-bg);color:var(--color-fg)}
   </section>
 
   <p class="pe-note">Πηγή: eProcurement Κυπριακής Δημοκρατίας, Περιοχή Πληροφοριών › Στατιστικά — τα 9 αρχεία «Διαγωνισμοί που ανατέθηκαν μέσω του συστήματος eProcurement», από 1/1/2015 έως 31/10/2026 (το τελευταίο ανέβηκε 03/11/2026). Περιλαμβάνονται μόνο συμβάσεις με Είδος «Έργα»· από το 2026 αφαιρέθηκε μία δοκιμαστική εγγραφή του συστήματος. Τα αρχεία έως το 2020 δεν δίνουν τύπο Αναθέτουσας Αρχής, κριτήριο ανάθεσης, όριο ΕΕ, χρηματοδότηση ΕΕ και αριθμό προσφορών («Δεν αναφέρεται»)· τα 2019 και 2020 ούτε κωδικούς CPV. Τα στοιχεία δημοσιεύονται όπως καταχωρήθηκαν και μπορεί να περιέχουν λάθη ή παραλήψεις.</p>
-  <p class="pe-note">Η «Επαρχία έργου» δεν δίνεται από το eProcurement· προκύπτει από τον τίτλο του έργου και την Αναθέτουσα Αρχή (δήμος, κοινότητα ή χωριό, επαρχία, και αγγλικές ονομασίες)· για λίγα μεγάλα έργα ορίστηκε χειροκίνητα (π.χ. LNG → Βασιλικό, Λάρνακα). «Εκτός Κύπρου» είναι κυρίως τα περίπτερα του Υφυπουργείου Τουρισμού σε εκθέσεις στο εξωτερικό. Όπου ο τίτλος δεν δίνει τοποθεσία (π.χ. συντηρήσεις στρατοπέδων, έργα σε όλη την Κύπρο) εμφανίζεται «Δεν προσδιορίζεται». Το κουμπί «📍 Οδηγίες Google Maps» οδηγεί στην κοινότητα/δήμο/οδό που αναφέρει το έργο (κατά προσέγγιση, όχι στο ακριβές εργοτάξιο)· εμφανίζεται μόνο όπου ο τίτλος δίνει τοποθεσία.</p>
+  <p class="pe-note">Η «Επαρχία έργου» δεν δίνεται από το eProcurement· προκύπτει από τον τίτλο του έργου και την Αναθέτουσα Αρχή (δήμος, κοινότητα ή χωριό, επαρχία, και αγγλικές ονομασίες)· για λίγα μεγάλα έργα ορίστηκε χειροκίνητα (π.χ. LNG → Βασιλικό, Λάρνακα). «Εκτός Κύπρου» είναι κυρίως τα περίπτερα του Υφυπουργείου Τουρισμού σε εκθέσεις στο εξωτερικό. Όπου ο τίτλος δεν δίνει τοποθεσία (π.χ. συντηρήσεις στρατοπέδων, έργα σε όλη την Κύπρο) εμφανίζεται «Δεν προσδιορίζεται». Όταν ο τίτλος αναφέρει συγκεκριμένο κτίριο ή χώρο (π.χ. σχολείο, δημαρχείο, νοσοκομείο, γήπεδο, φράγμα, οδό) εμφανίζονται τα κουμπιά «📍 Χάρτης» (αναζήτηση του χώρου στο Google Maps — ελέγξτε την καρφίτσα) και «🧭 Οδηγίες». Όταν δίνει μόνο κοινότητα ή δήμο, εμφανίζεται «📍 Περιοχή (κατά προσέγγιση)».</p>
 </div>
 
 <script>
@@ -655,10 +655,14 @@ html,body{margin:0;background:var(--color-bg);color:var(--color-fg)}
       const a = document.createElement('a'); a.href = r.link; a.target = '_blank'; a.rel = 'noopener'; a.textContent = r.title; tc.appendChild(a);
       if (r.suspect) { const f = document.createElement('span'); f.className = 'pe-flag'; f.textContent = '⚠ Πιθανό λάθος αξίας'; tc.appendChild(f); }
       if (r.place) {
-        const g = document.createElement('a'); g.className = 'pe-map'; g.target = '_blank'; g.rel = 'noopener';
-        g.href = 'https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(r.place);
-        g.textContent = '📍 Οδηγίες Google Maps'; g.title = 'Κατά προσέγγιση τοποθεσία: ' + r.place;
-        tc.appendChild(g);
+        const mk = (txt, href, tip) => { const g = document.createElement('a'); g.className = 'pe-map'; g.target = '_blank'; g.rel = 'noopener'; g.href = href; g.textContent = txt; g.title = tip; tc.appendChild(g); };
+        const q = encodeURIComponent(r.place);
+        if (r.place_lvl === 'site') {
+          mk('📍 Χάρτης', 'https://www.google.com/maps/search/?api=1&query=' + q, 'Αναζήτηση στο Google Maps: ' + r.place);
+          mk('🧭 Οδηγίες', 'https://www.google.com/maps/dir/?api=1&destination=' + q, 'Οδηγίες προς: ' + r.place);
+        } else {
+          mk('📍 Περιοχή (κατά προσέγγιση)', 'https://www.google.com/maps/search/?api=1&query=' + q, 'Ο τίτλος δεν δίνει συγκεκριμένο σημείο· δείχνει την κοινότητα/δήμο: ' + r.place);
+        }
       }
       const sm = document.createElement('small'); sm.textContent = (r.district && r.district !== 'Δεν προσδιορίζεται' ? r.district + ' · ' : '') + r.category + ' · δημοσ. ' + dateLabel(r.published) + (r.eu_funding === 'Ναι' ? ' · χρηματοδότηση ΕΕ' : '') + (r.threshold === 'Πάνω' ? ' · πάνω από όριο ΕΕ' : ''); tc.appendChild(sm);
       td('', r.authority);
