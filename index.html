@@ -719,11 +719,26 @@ html,body{margin:0;background:var(--color-bg);color:var(--color-fg)}
   const txt=await new Response(new Blob([gz]).stream().pipeThrough(new DecompressionStream('gzip'))).text();
   return JSON.parse(txt);
  }
+
+ // ---- αρχείο χρήσης (μόνο για τον διαχειριστή) ----
+ const LOGURL='', LOGK='bc43907d1b572b345bb0012d';
+ let curUser='';
+ const dev=(/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)?'Κινητό':'Υπολογιστής')+' · '+((navigator.userAgentData&&navigator.userAgentData.platform)||(/iPhone|iPad/.test(navigator.userAgent)?'iOS':/Android/.test(navigator.userAgent)?'Android':/Windows/.test(navigator.userAgent)?'Windows':/Mac/.test(navigator.userAgent)?'Mac':''));
+ function plog(e,d,u){ if(!LOGURL||LOGURL.indexOf('http')!==0) return; try{ fetch(LOGURL,{method:'POST',mode:'no-cors',keepalive:true,headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({k:LOGK,u:u||curUser,e:e,d:d||'',dev:dev})}).catch(()=>{}); }catch(x){} }
+ const LBL={ay:'Έτη',dist:'Επαρχία',eo:'Ανάδοχος',aa:'Αναθέτουσα Αρχή',cat:'Κατηγορία',proc:'Διαδικασία',q:'Αναζήτηση',m1:'Από μήνα',m2:'Έως μήνα',py:'Έτος δημοσίευσης',vmin:'Αξία από',vmax:'Αξία έως',thr:'Όριο ΕΕ',eu:'Χρηματοδότηση ΕΕ',hidesus:'Απόκρυψη ύποπτων',aat:'Τύπος Αρχής'};
+ let pend={}, pt=null;
+ const sp0=window.dash.setParams;
+ window.dash.setParams=function(o){ const r=sp0.apply(this,arguments); try{ Object.assign(pend,o||{}); clearTimeout(pt); pt=setTimeout(()=>{ const parts=Object.keys(pend).filter(k=>!((k==='m1'||k==='m2')&&pend[k]==null&&Object.keys(pend).length>2)).map(k=>(LBL[k]||k)+': '+(pend[k]==null||pend[k]===''?'όλα':String(pend[k]))); pend={}; if(parts.length) plog('Φίλτρο', parts.join(' · ')); },1500);}catch(x){} return r; };
+ document.addEventListener('click',(ev)=>{ const a=ev.target.closest&&ev.target.closest('a,button'); if(!a||!curUser) return;
+  if(a.classList.contains('pe-map')) plog(a.textContent.trim(), a.title||'');
+  else if(a.classList.contains('pe-pdfbtn')) plog('Αποστολή PDF','');
+  else if(a.closest('td.title')&&a.href&&a.href.indexOf('eprocurement')>-1) plog('Άνοιγμα διαγωνισμού', a.textContent.slice(0,200));
+ },true);
  function store(k,v){try{v==null?localStorage.removeItem(k):localStorage.setItem(k,v);}catch(e){}}
  function get(k){try{return localStorage.getItem(k);}catch(e){return null;}}
  async function show(rawKey,user){
   window.__ROWS__=await loadData(rawKey);
-  $('gate').hidden=true; $('app').hidden=false; $('who').textContent=user?('Συνδεδεμένος: '+user):'';
+  curUser=user||''; $('gate').hidden=true; $('app').hidden=false; $('who').textContent=user?('Συνδεδεμένος: '+user):'';
   window.__dashAll();
  }
  $('gateform').addEventListener('submit',async(ev)=>{
@@ -731,13 +746,13 @@ html,body{margin:0;background:var(--color-bg);color:var(--color-fg)}
   const u=$('u').value, p=$('p').value;
   try{ const k=await unlock(u,p);
    if($('rem').checked){store('pe_k',btoa(String.fromCharCode(...k)));store('pe_u',u.trim());}
-   await show(k,u.trim());
-  }catch(e){ $('err').textContent = e.message==='auth' ? 'Λάθος όνομα χρήστη ή κωδικός.' : 'Δεν ήταν δυνατή η φόρτωση. Ελέγξτε τη σύνδεση στο internet.'; }
+   await show(k,u.trim()); plog('Σύνδεση','');
+  }catch(e){ if(e.message==='auth') plog('Αποτυχία σύνδεσης','Δοκίμασε όνομα: '+u.trim(), '(άγνωστος)'); $('err').textContent = e.message==='auth' ? 'Λάθος όνομα χρήστη ή κωδικός.' : 'Δεν ήταν δυνατή η φόρτωση. Ελέγξτε τη σύνδεση στο internet.'; }
   btn.disabled=false;
  });
- $('logout').addEventListener('click',()=>{store('pe_k',null);store('pe_u',null);location.reload();});
+ $('logout').addEventListener('click',()=>{plog('Αποσύνδεση','');store('pe_k',null);store('pe_u',null);location.reload();});
  const saved=get('pe_k');
- if(saved){ show(b64(saved),get('pe_u')).catch(()=>{store('pe_k',null);$('gate').hidden=false;$('app').hidden=true;}); }
+ if(saved){ show(b64(saved),get('pe_u')).then(()=>plog('Άνοιγμα εφαρμογής','(αποθηκευμένη σύνδεση)')).catch(()=>{store('pe_k',null);$('gate').hidden=false;$('app').hidden=true;}); }
  if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(()=>{});}
 })();
 </script>
