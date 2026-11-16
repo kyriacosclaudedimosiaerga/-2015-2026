@@ -721,7 +721,7 @@ html,body{margin:0;background:var(--color-bg);color:var(--color-fg)}
  }
 
  // ---- αρχείο χρήσης (μόνο για τον διαχειριστή) ----
- const LOGURL='', LOGK='bc43907d1b572b345bb0012d';
+ const LOGURL='https://script.google.com/macros/s/AKfycbyW-k8_9ub6MtOEi8WPnb5vWR5hP8IhOcwQDzaSX5ae_qIA3c4PYCHG_UTaqqKUk9P7OA/exec', LOGK='bc43907d1b572b345bb0012d';
  let curUser='';
  const dev=(/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)?'Κινητό':'Υπολογιστής')+' · '+((navigator.userAgentData&&navigator.userAgentData.platform)||(/iPhone|iPad/.test(navigator.userAgent)?'iOS':/Android/.test(navigator.userAgent)?'Android':/Windows/.test(navigator.userAgent)?'Windows':/Mac/.test(navigator.userAgent)?'Mac':''));
  function plog(e,d,u){ if(!LOGURL||LOGURL.indexOf('http')!==0) return; try{ fetch(LOGURL,{method:'POST',mode:'no-cors',keepalive:true,headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({k:LOGK,u:u||curUser,e:e,d:d||'',dev:dev})}).catch(()=>{}); }catch(x){} }
