@@ -199,7 +199,8 @@
   const getH = () => { try { return JSON.parse(localStorage.getItem('pe_letters') || '{}'); } catch (e) { return {}; } };
   const setH = (h) => { try { localStorage.setItem('pe_letters', JSON.stringify(h)); } catch (e) {} };
   const css = document.createElement('style');
-  css.textContent = `.pe-letbtn{display:inline-block;margin:4px 8px 0 0;font:inherit;font-size:12px;padding:3px 9px;border-radius:12px;border:1px solid #1f4e79;background:#fff;color:#1f4e79;cursor:pointer}
+  css.textContent = `.pe-acts{display:flex;flex-direction:column;align-items:flex-start;gap:5px;margin:5px 0 3px}.pe-actrow{display:flex;flex-wrap:wrap;gap:6px;align-items:center}.pe-acts .pe-map{margin:0!important}
+.pe-letbtn{display:inline-block;margin:0;font:inherit;font-size:12px;padding:3px 9px;border-radius:12px;border:1px solid #1f4e79;background:#fff;color:#1f4e79;cursor:pointer}
 .pe-letbtn:hover{background:#eef3f8}.pe-lethist{display:block;font-size:12px;color:#1e6b34;background:#e8f5ec;border:1px solid #b9dfc5;border-radius:6px;padding:3px 7px;margin-top:4px;white-space:pre-line;font-weight:600}
 .pe-letov{position:fixed;inset:0;background:rgba(10,20,35,.45);z-index:9999;display:flex;align-items:flex-start;justify-content:center;overflow:auto;padding:24px 12px}
 .pe-letbox{font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;background:#fff;color:#111;max-width:560px;width:100%;border-radius:12px;padding:18px 18px 14px;box-shadow:0 10px 40px rgba(0,0,0,.3);font-size:14px}
@@ -289,10 +290,17 @@
       if (!b) {
         b = document.createElement('button'); b.type = 'button'; b.className = 'pe-letbtn'; b.textContent = '✉️ Επιστολή';
         b.onclick = (e) => { e.preventDefault(); const r = rowById(id); if (r) openForm(r); };
-        const sm = tc.querySelector('small'); tc.insertBefore(b, sm || null);
+        let box = tc.querySelector('.pe-acts');
+        if (!box) {
+          box = document.createElement('div'); box.className = 'pe-acts';
+          const maps = [...tc.querySelectorAll('a.pe-map')];
+          if (maps.length) { const mr = document.createElement('div'); mr.className = 'pe-actrow'; maps.forEach((m) => mr.appendChild(m)); box.appendChild(mr); }
+          const sm = tc.querySelector('small'); tc.insertBefore(box, sm || null);
+        }
+        const lr = document.createElement('div'); lr.className = 'pe-actrow'; lr.appendChild(b); box.appendChild(lr);
       }
       let hs = tc.querySelector('.pe-lethist'); const t = histText(id);
-      if (t) { if (!hs) { hs = document.createElement('span'); hs.className = 'pe-lethist'; tc.insertBefore(hs, b.nextSibling); } if (hs.textContent !== t) hs.textContent = t; }
+      if (t) { if (!hs) { hs = document.createElement('span'); hs.className = 'pe-lethist'; b.parentElement.after(hs); } if (hs.textContent !== t) hs.textContent = t; }
       else if (hs) hs.remove();
     });
   }
