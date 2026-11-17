@@ -196,6 +196,8 @@
   // ---- UI ----
   const DESC = {1: 'Προς Υπεύθυνο Μηχανικό — τήρηση μητρώου εργοδοτουμένων', 2: 'Προς Ανάδοχο εταιρεία — τήρηση Συλλογικών Συμβάσεων', 3: 'Προς Υπεύθυνο Μηχανικό — καταγγελία παραβίασης', 4: 'Προς Αναθέτουσα Αρχή — καταγγελία επιβλέποντα (χωρίς ανταπόκριση στην Επ. 3)'};
   const today = () => { const d = new Date(); return String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0') + '/' + d.getFullYear(); };
+  // μηδενισμός δοκιμαστικών σημάνσεων (17/11/2026), μία φορά ανά συσκευή
+  try { if (localStorage.getItem('pe_letters_reset') !== '1') { localStorage.removeItem('pe_letters'); localStorage.setItem('pe_letters_reset', '1'); } } catch (e) {}
   const getH = () => { try { return JSON.parse(localStorage.getItem('pe_letters') || '{}'); } catch (e) { return {}; } };
   const setH = (h) => { try { localStorage.setItem('pe_letters', JSON.stringify(h)); } catch (e) {} };
   const css = document.createElement('style');
