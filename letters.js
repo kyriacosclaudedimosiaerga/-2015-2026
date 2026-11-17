@@ -198,7 +198,7 @@
   const setH = (h) => { try { localStorage.setItem('pe_letters', JSON.stringify(h)); } catch (e) {} };
   const css = document.createElement('style');
   css.textContent = `.pe-letbtn{display:inline-block;margin:4px 8px 0 0;font:inherit;font-size:12px;padding:3px 9px;border-radius:12px;border:1px solid #1f4e79;background:#fff;color:#1f4e79;cursor:pointer}
-.pe-letbtn:hover{background:#eef3f8}.pe-lethist{display:block;font-size:11.5px;color:#2e6b3a;margin-top:3px}
+.pe-letbtn:hover{background:#eef3f8}.pe-lethist{display:block;font-size:12px;color:#1e6b34;background:#e8f5ec;border:1px solid #b9dfc5;border-radius:6px;padding:3px 7px;margin-top:4px;white-space:pre-line;font-weight:600}
 .pe-letov{position:fixed;inset:0;background:rgba(10,20,35,.45);z-index:9999;display:flex;align-items:flex-start;justify-content:center;overflow:auto;padding:24px 12px}
 .pe-letbox{font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;background:#fff;color:#111;max-width:560px;width:100%;border-radius:12px;padding:18px 18px 14px;box-shadow:0 10px 40px rgba(0,0,0,.3);font-size:14px}
 .pe-letbox h3{margin:0 0 4px;font-size:17px;color:#1f4e79}.pe-letbox .sub{color:#555;font-size:12.5px;margin-bottom:12px}
@@ -213,15 +213,29 @@
 
   function rowById(id) { const rs = window.__ROWS__ || []; if (!window.__peIdx || window.__peIdx.n !== rs.length) { const m = new Map(); rs.forEach((r) => m.set(String(r.id), r)); window.__peIdx = {n: rs.length, m}; } return window.__peIdx.m.get(String(id)); }
 
+  let REMOTE = {};
+  async function loadRemote() {
+    const c = window.peLogCfg; if (!c || !c.url) return;
+    try {
+      const r = await fetch(c.url + '?a=letters&k=' + encodeURIComponent(c.k), {cache: 'no-store'});
+      const j = await r.json(); if (!Array.isArray(j)) return;
+      const m = {}; j.forEach((e) => { const id = String(e.cft || ''); if (!id) return; (m[id] = m[id] || []).push({n: +e.n, d: String(e.date || ''), u: e.u || ''}); });
+      REMOTE = m; decorate();
+    } catch (e) {}
+  }
+  function hist(id) {
+    const all = (REMOTE[id] || []).concat((getH()[id] || []).map((e) => ({n: e.n, d: e.d, u: e.u || ''})));
+    const seen = new Set(); return all.filter((e) => { const k = e.n + '|' + e.d; if (seen.has(k)) return false; seen.add(k); return true; }).sort((a, b) => a.n - b.n);
+  }
   function histText(id) {
-    const h = getH()[id]; if (!h || !h.length) return '';
-    return '✉ ' + h.map((e) => 'Επ.' + e.n + ' ' + e.d).join(' · ');
+    const h = hist(id); if (!h.length) return '';
+    return h.map((e) => '✅ Επιστολή ' + e.n + ' — τυπώθηκε & στάλθηκε ' + e.d + (e.u ? ' (' + e.u.split('@')[0] + ')' : '')).join('\n');
   }
 
   function openForm(r) {
     const ov = document.createElement('div'); ov.className = 'pe-letov';
     const eo = String(r.contractors || '').split(';').map((s) => s.trim()).filter(Boolean).join(' και ');
-    const prev = getH()[r.id] || [];
+    const prev = hist(r.id);
     const next = prev.length ? Math.min(4, Math.max(...prev.map((e) => e.n)) + 1) : 1;
     ov.innerHTML = `<div class="pe-letbox" role="dialog" aria-label="Επιστολή για το έργο">
       <h3>✉️ Επιστολή για το έργο</h3><div class="sub"></div>
@@ -235,7 +249,7 @@
       <div class="pe-letnote">Θα δημιουργηθεί PDF για εκτύπωση και υπογραφή. Η έκδοση καταγράφεται στο αρχείο (ποια επιστολή, για ποιο έργο, πότε, από ποιον).</div>
       <div class="pe-letact"><button type="button" class="cancel">Άκυρο</button><button type="button" class="go">Δημιουργία PDF</button></div></div>`;
     const q = (s) => ov.querySelector(s);
-    q('.sub').textContent = r.title.slice(0, 160) + (prev.length ? ' — ήδη: ' + histText(r.id).slice(2) : '');
+    q('.sub').textContent = r.title.slice(0, 160) + (prev.length ? ' — ήδη: ' + prev.map((e) => 'Επ.' + e.n + ' ' + e.d).join(', ') : '');
     q('[name=project]').value = r.title; q('[name=contractor]').value = eo; q('[name=authority]').value = r.authority;
     q('[name=district]').value = GEN[r.district] ? r.district : 'Λευκωσία'; q('[name=date]').value = today();
     ov.addEventListener('click', (e) => { if (e.target === ov) ov.remove(); });
@@ -254,7 +268,7 @@
           const a = document.createElement('a'); a.href = URL.createObjectURL(file); a.download = name; document.body.appendChild(a); a.click(); a.remove();
           setTimeout(() => URL.revokeObjectURL(a.href), 60000);
         }
-        const h = getH(); (h[r.id] = h[r.id] || []).push({n, d: d.date.slice(0, 5), t: Date.now()}); setH(h);
+        const h = getH(); (h[r.id] = h[r.id] || []).push({n, d: d.date, u: (window.peLogCfg && window.peLogCfg.user) || '', t: Date.now()}); setH(h);
         if (window.peLog) window.peLog('Επιστολή ' + n, 'Προς: ' + label + ' · Έργο: ' + d.project.slice(0, 160) + ' · Ανάδοχος: ' + d.contractor + ' · Αρχή: ' + d.authority + ' · Επαρχία: ' + d.district + ' · Ημ/νία επιστολής: ' + d.date + ' · CFT ' + r.id);
         ov.remove(); decorate();
       } catch (e) { alert('Δεν ήταν δυνατή η δημιουργία της επιστολής. ' + (e && e.message ? e.message : '')); btn.disabled = false; btn.textContent = 'Δημιουργία PDF'; }
@@ -278,6 +292,7 @@
       else if (hs) hs.remove();
     });
   }
+  setTimeout(loadRemote, 1500);
   let pend = false;
   new MutationObserver(() => { if (pend) return; pend = true; requestAnimationFrame(() => { pend = false; decorate(); }); }).observe(document.documentElement, {childList: true, subtree: true});
 })();
