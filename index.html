@@ -654,7 +654,7 @@ body{background:#eef2f6}
     const yrs = Array.from(new Set(all().map((r) => r.award_month.slice(0, 4)))).sort();
     const g = new Map(d3.rollups(rows, (v) => ({v: sum(v, (r) => r.awarded_value), n: v.length}), (r) => r.award_month.slice(0, 4)));
     const data = yrs.map((y) => ({y, v: (g.get(y) || {}).v || 0, n: (g.get(y) || {}).n || 0}));
-    const W = Math.max(300, el.clientWidth), H = 230, mt = 22, mb = 26, ml = 8, mr = 8;
+    const W = Math.max(300, el.clientWidth), nar = W < 560, H = nar ? 270 : 240, mt = nar ? 64 : 22, mb = 26, ml = 8, mr = 8;
     const x = d3.scaleBand(yrs, [ml, W - mr]).padding(0.22);
     const y = d3.scaleLinear([0, d3.max(data, (d) => d.v) || 1], [H - mb, mt]);
     const svg = d3.select(el).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`).attr('role', 'img');
@@ -666,7 +666,9 @@ body{background:#eef2f6}
       .on('click', (event, d) => { const s = new Set(sel); s.has(d.y) ? s.delete(d.y) : s.add(d.y); dash.setParams({ay: s.size ? Array.from(s).sort().join(',') : null, m1: null, m2: null}); });
     bars.append('rect').attr('x', (d) => x(d.y)).attr('width', x.bandwidth()).attr('y', (d) => y(d.v)).attr('height', (d) => Math.max(0, y(0) - y(d.v))).attr('rx', 3)
       .attr('fill', (d) => (!sel.length || sel.includes(d.y) ? yearColor(d.y) : 'var(--cds-chart-muted)'));
-    if (W >= 520) bars.append('text').attr('x', (d) => x(d.y) + x.bandwidth() / 2).attr('y', (d) => y(d.v) - 5).attr('text-anchor', 'middle').attr('font-size', 10.5).attr('fill', 'var(--color-fg-muted)').text((d) => (d.v ? eurC.format(d.v).replace(' €', '') : ''));
+    const vt = (d) => (d.v ? eurC.format(d.v) : '');
+    if (!nar) bars.append('text').attr('x', (d) => x(d.y) + x.bandwidth() / 2).attr('y', (d) => y(d.v) - 5).attr('text-anchor', 'middle').attr('font-size', 11).attr('font-weight', 600).attr('fill', 'var(--color-fg)').text(vt);
+    else bars.append('text').attr('transform', (d) => `translate(${x(d.y) + x.bandwidth() / 2 + 4},${y(d.v) - 4}) rotate(-90)`).attr('text-anchor', 'start').attr('font-size', 11).attr('font-weight', 600).attr('fill', 'var(--color-fg)').text(vt);
     svg.append('g').selectAll('text').data(yrs).join('text').attr('x', (d) => x(d) + x.bandwidth() / 2).attr('y', H - 8).attr('text-anchor', 'middle').attr('font-size', 11).attr('fill', 'var(--color-fg-muted)').text((d) => (W < 480 ? "'" + d.slice(2) : d));
     if (!total) { const t = document.createElement('p'); t.className = 'pe-note'; t.textContent = 'Δεν υπάρχουν έργα με τα τρέχοντα φίλτρα.'; el.appendChild(t); }
   });
