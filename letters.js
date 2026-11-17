@@ -176,12 +176,14 @@
     if (st.y > H - 230) { pages.push(new Page()); st.y = 80; }
     const p = pages[pages.length - 1];
     const prov = GEN[d.district] || 'Λευκωσίας';
-    const colL = ML, colR = ML + CW / 2 + 30, s = 11.5;
+    const three = !!d.deok, s = three ? 10.5 : 11.5, colL = ML;
+    const cols = three ? [ML, ML + CW / 3 + 6, ML + 2 * CW / 3 + 12] : [ML, ML + CW / 2 + 30];
+    const lineW = three ? 128 : 150;
     let y = st.y;
-    const both = (a, b, f) => { p.text(f || F.r, f === F.b ? 'F2' : 'F1', a, s, colL, y); p.text(f || F.r, f === F.b ? 'F2' : 'F1', b, s, colR, y); y += s * 1.45; };
-    both('Για την Συντεχνία', 'Για το Σωματείο'); both('Οικοδόμων ΠΕΟ', 'Οικοδόμων ΣΕΚ');
-    y += 38; p.line(colL, y, colL + 150, y); p.line(colR, y, colR + 150, y); y += 22;
-    both('Επαρ. Γραμματέας', 'Επαρ. Γραμματέας'); both('Οικοδόμων Π.Ε.Ο', 'Οικοδόμων Σ.Ε.Κ'); both(prov, prov);
+    const row = (arr) => { arr.slice(0, cols.length).forEach((t, i) => p.text(F.r, 'F1', t, s, cols[i], y)); y += s * 1.45; };
+    row(['Για την Συντεχνία', 'Για το Σωματείο', 'Για την Ομοσπονδία']); row(['Οικοδόμων ΠΕΟ', 'Οικοδόμων ΣΕΚ', 'Οικοδόμων ΔΕΟΚ']);
+    y += 38; cols.forEach((x) => p.line(x, y, x + lineW, y)); y += 22;
+    row(['Επαρ. Γραμματέας', 'Επαρ. Γραμματέας', 'Επαρ. Γραμματέας']); row(['Οικοδόμων Π.Ε.Ο', 'Οικοδόμων Σ.Ε.Κ', 'Οικοδόμων Δ.Ε.Ο.Κ']); row([prov, prov, prov]);
     y += 18;
     p.text(F.b, 'F2', 'Κοινοποίηση:', s, colL, y); p.line(colL, y + 2, colL + width(F.b, 'Κοινοποίηση:', s), y + 2); y += s * 1.6;
     st.y = y;
@@ -246,18 +248,20 @@
       <label class="addr">Διεύθυνση εταιρείας (προαιρετικά, για την Επιστολή 2)</label><input name="address" class="addr">
       <label>Επαρχία (για τις υπογραφές)</label><select name="district">${Object.keys(GEN).map((k) => `<option>${k}</option>`).join('')}</select>
       <label>Ημερομηνία</label><input name="date">
+      <label class="pe-deok" style="display:flex;gap:8px;align-items:center;font-weight:600;margin-top:12px"><input type="checkbox" name="deok" style="width:auto"> Προσθήκη ΔΕΟΚ στις υπογραφές (3 υπογραφές: ΠΕΟ – ΣΕΚ – ΔΕΟΚ)</label>
       <div class="pe-letnote">Θα δημιουργηθεί PDF για εκτύπωση και υπογραφή. Η έκδοση καταγράφεται στο αρχείο (ποια επιστολή, για ποιο έργο, πότε, από ποιον).</div>
       <div class="pe-letact"><button type="button" class="cancel">Άκυρο</button><button type="button" class="go">Δημιουργία PDF</button></div></div>`;
     const q = (s) => ov.querySelector(s);
     q('.sub').textContent = r.title.slice(0, 160) + (prev.length ? ' — ήδη: ' + prev.map((e) => 'Επ.' + e.n + ' ' + e.d).join(', ') : '');
     q('[name=project]').value = r.title; q('[name=contractor]').value = eo; q('[name=authority]').value = r.authority;
-    q('[name=district]').value = GEN[r.district] ? r.district : 'Λευκωσία'; q('[name=date]').value = today();
+    q('[name=district]').value = GEN[r.district] ? r.district : 'Λευκωσία'; q('[name=date]').value = today(); try { q('[name=deok]').checked = localStorage.getItem('pe_deok') === '1'; } catch (e) {}
     ov.addEventListener('click', (e) => { if (e.target === ov) ov.remove(); });
     q('.cancel').onclick = () => ov.remove();
     q('.go').onclick = async () => {
       const btn = q('.go'); btn.disabled = true; btn.textContent = 'Δημιουργία…';
       const n = +ov.querySelector('[name=pe-n]:checked').value;
-      const d = {project: q('[name=project]').value.trim(), contractor: q('[name=contractor]').value.trim(), authority: q('[name=authority]').value.trim(), address: q('[name=address]').value.trim(), district: q('[name=district]').value, date: q('[name=date]').value.trim()};
+      const d = {project: q('[name=project]').value.trim(), contractor: q('[name=contractor]').value.trim(), authority: q('[name=authority]').value.trim(), address: q('[name=address]').value.trim(), district: q('[name=district]').value, date: q('[name=date]').value.trim(), deok: q('[name=deok]').checked};
+      try { localStorage.setItem('pe_deok', d.deok ? '1' : '0'); } catch (e) {}
       try {
         const {bytes, label} = await makeLetter(n, d);
         const name = 'Epistoli_' + n + '_' + r.id + '_' + d.date.replace(/\//g, '-') + '.pdf';
@@ -269,7 +273,7 @@
           setTimeout(() => URL.revokeObjectURL(a.href), 60000);
         }
         const h = getH(); (h[r.id] = h[r.id] || []).push({n, d: d.date, u: (window.peLogCfg && window.peLogCfg.user) || '', t: Date.now()}); setH(h);
-        if (window.peLog) window.peLog('Επιστολή ' + n, 'Προς: ' + label + ' · Έργο: ' + d.project.slice(0, 160) + ' · Ανάδοχος: ' + d.contractor + ' · Αρχή: ' + d.authority + ' · Επαρχία: ' + d.district + ' · Ημ/νία επιστολής: ' + d.date + ' · CFT ' + r.id);
+        if (window.peLog) window.peLog('Επιστολή ' + n, 'Προς: ' + label + ' · Έργο: ' + d.project.slice(0, 160) + ' · Ανάδοχος: ' + d.contractor + ' · Αρχή: ' + d.authority + ' · Επαρχία: ' + d.district + ' · Υπογραφές: ' + (d.deok ? 'ΠΕΟ, ΣΕΚ, ΔΕΟΚ' : 'ΠΕΟ, ΣΕΚ') + ' · Ημ/νία επιστολής: ' + d.date + ' · CFT ' + r.id);
         ov.remove(); decorate();
       } catch (e) { alert('Δεν ήταν δυνατή η δημιουργία της επιστολής. ' + (e && e.message ? e.message : '')); btn.disabled = false; btn.textContent = 'Δημιουργία PDF'; }
     };
