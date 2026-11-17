@@ -6,7 +6,10 @@
   let FONTS = null;
   async function loadFonts() {
     if (FONTS) return FONTS;
+    const emb = window.__PE_FONTS__;
+    const b64 = (x) => Uint8Array.from(atob(x), (c) => c.charCodeAt(0));
     const get = async (n) => {
+      if (emb) return {ttf: b64(emb[n].ttf), map: emb[n].map, used: new Map()};
       const [ttf, map] = await Promise.all([
         fetch('pdf/font-' + n + '.ttf').then((r) => r.arrayBuffer()),
         fetch('pdf/font-' + n + '.json').then((r) => r.json()),
@@ -216,7 +219,8 @@
 .pe-letact .go{background:#1f4e79;color:#fff}.pe-letnote{font-size:12px;color:#666;margin-top:8px}`;
   document.head.appendChild(css);
 
-  function rowById(id) { const rs = window.__ROWS__ || []; if (!window.__peIdx || window.__peIdx.n !== rs.length) { const m = new Map(); rs.forEach((r) => m.set(String(r.id), r)); window.__peIdx = {n: rs.length, m}; } return window.__peIdx.m.get(String(id)); }
+  function allRows() { if (window.__ROWS__) return window.__ROWS__; try { const d = window.dash && window.dash.data && window.dash.data('works'); return (d && d.data) || []; } catch (e) { return []; } }
+  function rowById(id) { const rs = allRows(); if (!window.__peIdx || window.__peIdx.n !== rs.length) { const m = new Map(); rs.forEach((r) => m.set(String(r.id), r)); window.__peIdx = {n: rs.length, m}; } return window.__peIdx.m.get(String(id)); }
 
   let REMOTE = {};
   async function loadRemote() {
@@ -269,7 +273,12 @@
         const {bytes, label} = await makeLetter(n, d);
         const name = 'Epistoli_' + n + '_' + r.id + '_' + d.date.replace(/\//g, '-') + '.pdf';
         const file = new File([bytes], name, {type: 'application/pdf'});
-        if (navigator.canShare && navigator.canShare({files: [file]}) && /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)) {
+        let dl = null;
+        try { dl = window.claude && window.claude.use ? await window.claude.use('downloads') : null; } catch (e) { dl = null; }
+        if (dl) {
+          try { await dl.save({filename: name, data: new Blob([bytes], {type: 'application/pdf'})}); }
+          catch (e) { if (e && e.code === 'declined') { btn.disabled = false; btn.textContent = 'Δημιουργία PDF'; return; } throw e; }
+        } else if (navigator.canShare && navigator.canShare({files: [file]}) && /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)) {
           try { await navigator.share({files: [file], title: 'Επιστολή ' + n}); } catch (e) { if (e.name !== 'AbortError') throw e; }
         } else {
           const a = document.createElement('a'); a.href = URL.createObjectURL(file); a.download = name; document.body.appendChild(a); a.click(); a.remove();
