@@ -229,7 +229,7 @@
       const r = await fetch(c.url + '?a=letters&k=' + encodeURIComponent(c.k), {cache: 'no-store'});
       const j = await r.json(); if (!Array.isArray(j)) return;
       const m = {}; j.forEach((e) => { const id = String(e.cft || ''); if (!id) return; (m[id] = m[id] || []).push({n: +e.n, d: String(e.date || ''), u: e.u || ''}); });
-      REMOTE = m; decorate();
+      REMOTE = m; decorate(); try { document.dispatchEvent(new Event('pe-letters')); } catch (e) {}
     } catch (e) {}
   }
   function hist(id) {
@@ -286,7 +286,7 @@
         }
         const h = getH(); (h[r.id] = h[r.id] || []).push({n, d: d.date, u: (window.peLogCfg && window.peLogCfg.user) || '', t: Date.now()}); setH(h);
         if (window.peLog) window.peLog('Επιστολή ' + n, 'Προς: ' + label + ' · Έργο: ' + d.project.slice(0, 160) + ' · Ανάδοχος: ' + d.contractor + ' · Αρχή: ' + d.authority + ' · Επαρχία: ' + d.district + ' · Υπογραφές: ' + (d.deok ? 'ΠΕΟ, ΣΕΚ, ΔΕΟΚ' : 'ΠΕΟ, ΣΕΚ') + ' · Ημ/νία επιστολής: ' + d.date + ' · CFT ' + r.id);
-        ov.remove(); decorate();
+        ov.remove(); decorate(); try { document.dispatchEvent(new Event('pe-letters')); } catch (e) {}
       } catch (e) { alert('Δεν ήταν δυνατή η δημιουργία της επιστολής. ' + (e && e.message ? e.message : '')); btn.disabled = false; btn.textContent = 'Δημιουργία PDF'; }
     };
     const sync = () => { const n = ov.querySelector('[name=pe-n]:checked').value; ov.querySelectorAll('.addr').forEach((x) => { x.style.display = n === '2' ? '' : 'none'; }); };
@@ -315,6 +315,7 @@
       else if (hs) hs.remove();
     });
   }
+  window.peLetters = {hist, rowById, allRows, openForm, ids: () => Array.from(new Set(Object.keys(REMOTE).concat(Object.keys(getH())))), desc: DESC};
   setTimeout(loadRemote, 1500);
   let pend = false;
   new MutationObserver(() => { if (pend) return; pend = true; requestAnimationFrame(() => { pend = false; decorate(); }); }).observe(document.documentElement, {childList: true, subtree: true});

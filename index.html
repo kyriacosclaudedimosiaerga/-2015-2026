@@ -294,6 +294,12 @@ body{background:#eef2f6}
     </section>
   </div>
 
+  <section class="pe-card" id="by-year">
+    <h2>Τάση ανά έτος</h2>
+    <p class="pe-note">Ανατεθείσα αξία κάθε έτους με τα υπόλοιπα φίλτρα (π.χ. μία επαρχία, Αρχή ή ανάδοχο), για να φαίνεται αν ανεβαίνει ή πέφτει. Το τελευταίο έτος είναι μέχρι σήμερα. Κλικ σε έτος για επιλογή.</p>
+    <div class="pe-chart" data-draw="c-trend" data-source="works"></div>
+  </section>
+
   <div class="pe-grid">
     <section class="pe-card" id="top-authorities">
       <h2>Κορυφαίες Αναθέτουσες Αρχές</h2>
@@ -373,9 +379,13 @@ body{background:#eef2f6}
     const q = (p.q || '').toString().trim().toLocaleLowerCase('el');
     const vmin = p.vmin == null || p.vmin === '' ? null : +p.vmin;
     const ays = aySet(p);
+    const favS = p.fav && window.peFavSet ? window.peFavSet() : null;
+    const newS = p.nw && window.peNewSet ? window.peNewSet() : null;
     const vmax = p.vmax == null || p.vmax === '' ? null : +p.vmax;
     return rows.filter((r) =>
       (!p.hidesus || !r.suspect) &&
+      (!favS || favS.has(String(r.id))) &&
+      (!newS || newS.has(String(r.id))) &&
       (!q || (r.title + ' ' + r.id).toLocaleLowerCase('el').includes(q)) &&
       (!p.aa || r.authority === p.aa) &&
       (!p.aat || r.authority_type === p.aat) &&
@@ -635,6 +645,31 @@ body{background:#eef2f6}
     g.append('text').attr('x', (d) => x(d.v) + 6).attr('y', rowH / 2 - 2).attr('dy', '0.32em').attr('font-size', 11).attr('fill', 'var(--color-fg-muted)')
       .text((d) => eurC.format(d.v) + ' · ' + int.format(d.n) + (W < 420 ? '' : ' διαγ.'));
   });
+  dash.draw('c-trend', (el) => {
+    el.replaceChildren();
+    const p = dash.params();
+    const rows = filtered({...p, ay: null, m1: null, m2: null});
+    if (!rows) { el.textContent = '—'; return; }
+    const sel = aySet(p);
+    const yrs = Array.from(new Set(all().map((r) => r.award_month.slice(0, 4)))).sort();
+    const g = new Map(d3.rollups(rows, (v) => ({v: sum(v, (r) => r.awarded_value), n: v.length}), (r) => r.award_month.slice(0, 4)));
+    const data = yrs.map((y) => ({y, v: (g.get(y) || {}).v || 0, n: (g.get(y) || {}).n || 0}));
+    const W = Math.max(300, el.clientWidth), H = 230, mt = 22, mb = 26, ml = 8, mr = 8;
+    const x = d3.scaleBand(yrs, [ml, W - mr]).padding(0.22);
+    const y = d3.scaleLinear([0, d3.max(data, (d) => d.v) || 1], [H - mb, mt]);
+    const svg = d3.select(el).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`).attr('role', 'img');
+    const tip = document.createElement('div'); tip.className = 'pe-tip'; tip.hidden = true; el.appendChild(tip);
+    const total = sum(data, (d) => d.v);
+    const bars = svg.append('g').selectAll('g').data(data).join('g').style('cursor', 'pointer')
+      .on('mousemove', (event, d) => tipShow(el, tip, [line('pe-tip-k', d.y + (d.y === yrs[yrs.length - 1] ? ' (μέχρι σήμερα)' : '')), line('', eur0.format(d.v)), line('', int.format(d.n) + ' διαγωνισμοί' + (d.n ? ' · μέση αξία ' + eurC.format(d.v / d.n) : ''))], event))
+      .on('mouseleave', () => { tip.hidden = true; })
+      .on('click', (event, d) => { const s = new Set(sel); s.has(d.y) ? s.delete(d.y) : s.add(d.y); dash.setParams({ay: s.size ? Array.from(s).sort().join(',') : null, m1: null, m2: null}); });
+    bars.append('rect').attr('x', (d) => x(d.y)).attr('width', x.bandwidth()).attr('y', (d) => y(d.v)).attr('height', (d) => Math.max(0, y(0) - y(d.v))).attr('rx', 3)
+      .attr('fill', (d) => (!sel.length || sel.includes(d.y) ? yearColor(d.y) : 'var(--cds-chart-muted)'));
+    if (W >= 520) bars.append('text').attr('x', (d) => x(d.y) + x.bandwidth() / 2).attr('y', (d) => y(d.v) - 5).attr('text-anchor', 'middle').attr('font-size', 10.5).attr('fill', 'var(--color-fg-muted)').text((d) => (d.v ? eurC.format(d.v).replace(' €', '') : ''));
+    svg.append('g').selectAll('text').data(yrs).join('text').attr('x', (d) => x(d) + x.bandwidth() / 2).attr('y', H - 8).attr('text-anchor', 'middle').attr('font-size', 11).attr('fill', 'var(--color-fg-muted)').text((d) => (W < 480 ? "'" + d.slice(2) : d));
+    if (!total) { const t = document.createElement('p'); t.className = 'pe-note'; t.textContent = 'Δεν υπάρχουν έργα με τα τρέχοντα φίλτρα.'; el.appendChild(t); }
+  });
   dash.draw('c-cat', (el) => {
     el.replaceChildren();
     const rows = filtered();
@@ -767,10 +802,12 @@ body{background:#eef2f6}
 
 
 
+
  </div>
 </div>
 <script src="pdf/pdfmail.js"></script>
 <script src="letters.js"></script>
+<script src="extras.js"></script>
 <script>
 (function(){
  const b64=(s)=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
@@ -814,7 +851,7 @@ body{background:#eef2f6}
  (function(){
   const fl=document.getElementById('filters'); if(!fl) return;
   const h=fl.querySelector('h2'); const tg=document.createElement('button'); tg.type='button'; tg.className='pe-ftog'; h.appendChild(tg);
-  const KEYS=['ay','q','aa','aat','dist','cat','eo','proc','m1','m2','vmin','vmax','thr','eu','py','hidesus'];
+  const KEYS=['ay','q','aa','aat','dist','cat','eo','proc','m1','m2','vmin','vmax','thr','eu','py','hidesus','fav','nw'];
   const upd=()=>{ let n=0; try{ const p=window.dash.params(); n=KEYS.filter(k=>p[k]!=null&&p[k]!==''&&p[k]!==false).length; }catch(e){} tg.textContent=(fl.classList.contains('collapsed')?'Εμφάνιση ▾':'Απόκρυψη ▴')+(n?' · '+n+' ενεργά':''); };
   if(window.matchMedia('(max-width:720px)').matches) fl.classList.add('collapsed');
   h.addEventListener('click',()=>{ fl.classList.toggle('collapsed'); upd(); });
