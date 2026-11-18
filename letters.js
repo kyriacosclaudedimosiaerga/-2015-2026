@@ -206,7 +206,14 @@
   const css = document.createElement('style');
   css.textContent = `.pe-acts{display:flex;flex-direction:column;align-items:flex-start;gap:5px;margin:5px 0 3px}.pe-actrow{display:flex;flex-wrap:wrap;gap:6px;align-items:center}.pe-acts .pe-map{margin:0!important}
 .pe-letbtn{display:inline-block;margin:0;font:inherit;font-size:12px;padding:3px 9px;border-radius:12px;border:1px solid #1f4e79;background:#fff;color:#1f4e79;cursor:pointer}
-.pe-letbtn:hover{background:#eef3f8}.pe-lethist{display:block;font-size:12px;color:#1e6b34;background:#e8f5ec;border:1px solid #b9dfc5;border-radius:6px;padding:3px 7px;margin-top:4px;white-space:pre-line;font-weight:600}
+.pe-letbtn:hover{background:#eef3f8}.pe-lethist{display:flex;flex-wrap:wrap;gap:4px 6px;align-items:center;margin-top:5px;font-size:12px}
+.pe-letchip{display:inline-block;border-radius:6px;padding:2px 7px;font-weight:600;border:1px solid}
+.pe-letst{display:inline-block;border-radius:6px;padding:2px 7px;font-weight:700;color:#fff}
+.pe-lethist.ok .pe-letchip{color:#1e6b34;background:#e8f5ec;border-color:#b9dfc5}.pe-lethist.ok .pe-letst{background:#2e7d32}
+.pe-lethist.wait .pe-letchip{color:#7a5a00;background:#fff6d6;border-color:#ecd48a}.pe-lethist.wait .pe-letst{background:#b7860b}
+.pe-lethist.due .pe-letchip{color:#9b1c1c;background:#fde8e8;border-color:#f3b4b4}.pe-lethist.due .pe-letst{background:#b3261e}
+.pe-lethist.due{border-left:4px solid #b3261e;padding-left:6px}
+.pe-letans{font:inherit;font-size:11.5px;padding:1px 7px;border-radius:6px;border:1px solid #1f4e79;background:#fff;color:#1f4e79;cursor:pointer}
 .pe-letov{position:fixed;inset:0;background:rgba(10,20,35,.45);z-index:9999;display:flex;align-items:flex-start;justify-content:center;overflow:auto;padding:24px 12px}
 .pe-letbox{font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;background:#fff;color:#111;max-width:560px;width:100%;border-radius:12px;padding:18px 18px 14px;box-shadow:0 10px 40px rgba(0,0,0,.3);font-size:14px}
 .pe-letbox h3{margin:0 0 4px;font-size:17px;color:#1f4e79}.pe-letbox .sub{color:#555;font-size:12.5px;margin-bottom:12px}
@@ -236,9 +243,31 @@
     const all = (REMOTE[id] || []).concat((getH()[id] || []).map((e) => ({n: e.n, d: e.d, u: e.u || ''})));
     const seen = new Set(); return all.filter((e) => { const k = e.n + '|' + e.d; if (seen.has(k)) return false; seen.add(k); return true; }).sort((a, b) => a.n - b.n);
   }
-  function histText(id) {
-    const h = hist(id); if (!h.length) return '';
-    return h.map((e) => '✅ Επιστολή ' + e.n + ' — τυπώθηκε & στάλθηκε ' + e.d + (e.u ? ' (' + e.u.split('@')[0] + ')' : '')).join('\n');
+  const pD = (x) => { const m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})/.exec(x || ''); return m ? new Date(+m[3], +m[2] - 1, +m[1]) : null; };
+  const ANS = () => { try { return JSON.parse(localStorage.getItem('pe_letans') || '{}') || {}; } catch (e) { return {}; } };
+  // Κατάσταση έργου: ok = ήρθε απάντηση, due = πέρασαν 30+ μέρες από την 1η επιστολή χωρίς απάντηση, wait = αναμονή
+  function status(id) {
+    const h = hist(String(id)); if (!h.length) return null;
+    const ds = h.map((e) => pD(e.d)).filter(Boolean).sort((a, b) => a - b);
+    const first = ds[0] || null, lastN = Math.max(...h.map((e) => e.n));
+    const a = ANS()[id]; const answered = !!(a && a.n >= lastN);
+    const days = first ? Math.floor((Date.now() - first.getTime()) / 864e5) : null;
+    return {h, first, lastN, ans: a, answered, days, state: answered ? 'ok' : (days != null && days >= 30 ? 'due' : 'wait')};
+  }
+  window.peLetterKey = (r) => { const s = status(r.id); if (!s) return 0; return (s.state === 'due' ? 3 : s.state === 'wait' ? 2 : 1) * 1e5 + (s.days || 0); };
+  function setAns(id, n) {
+    const a = ANS(); if (n == null) delete a[id]; else { const d = new Date(); a[id] = {n, d: String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0') + '/' + d.getFullYear()}; }
+    try { localStorage.setItem('pe_letans', JSON.stringify(a)); } catch (e) {}
+    const r = rowById(id); try { window.peLog && window.peLog(n == null ? 'Αναίρεση απάντησης επιστολής' : 'Απάντηση σε επιστολή', (n == null ? '' : 'Επ. ' + n + ' · ') + (r ? r.title.slice(0, 160) : '') + ' · CFT ' + id); } catch (e) {}
+    decorate(); try { document.dispatchEvent(new Event('pe-letters')); } catch (e) {}
+  }
+  function histHTML(id) {
+    const s = status(id); if (!s) return null;
+    const esc = (x) => String(x).replace(/[&<>"]/g, (c) => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c]));
+    const chips = s.h.map((e) => '<span class="pe-letchip">✉ Επ. ' + e.n + ' · ' + esc(e.d) + (e.u ? ' · ' + esc(e.u.split('@')[0]) : '') + '</span>').join('');
+    const st = s.state === 'ok' ? '✔ Απάντηση ' + esc(s.ans.d) : s.state === 'due' ? '⏰ ' + s.days + ' μέρες από την 1η — χωρίς απάντηση' : '⏳ ' + (s.days == null ? '' : s.days + ' μέρες · ') + 'αναμονή';
+    const btn = s.answered ? '<button type="button" class="pe-letans" data-un="1">Αναίρεση</button>' : '<button type="button" class="pe-letans">Ήρθε απάντηση</button>';
+    return {cls: s.state, html: chips + '<span class="pe-letst">' + st + '</span>' + btn, n: s.lastN, answered: s.answered};
   }
 
   function openForm(r) {
@@ -310,12 +339,18 @@
         }
         const lr = document.createElement('div'); lr.className = 'pe-actrow'; lr.appendChild(b); box.appendChild(lr);
       }
-      let hs = tc.querySelector('.pe-lethist'); const t = histText(id);
-      if (t) { if (!hs) { hs = document.createElement('span'); hs.className = 'pe-lethist'; b.parentElement.after(hs); } if (hs.textContent !== t) hs.textContent = t; }
-      else if (hs) hs.remove();
+      let hs = tc.querySelector('.pe-lethist'); const t = histHTML(id);
+      if (t) {
+        if (!hs) { hs = document.createElement('div'); b.parentElement.after(hs); }
+        const cls = 'pe-lethist ' + t.cls;
+        if (hs.dataset.h !== t.html || hs.className !== cls) {
+          hs.className = cls; hs.dataset.h = t.html; hs.innerHTML = t.html;
+          const ab = hs.querySelector('.pe-letans'); if (ab) ab.onclick = (e) => { e.preventDefault(); setAns(id, t.answered ? null : t.n); };
+        }
+      } else if (hs) hs.remove();
     });
   }
-  window.peLetters = {hist, rowById, allRows, openForm, ids: () => Array.from(new Set(Object.keys(REMOTE).concat(Object.keys(getH())))), desc: DESC};
+  window.peLetters = {hist, status, setAns, rowById, allRows, openForm, ids: () => Array.from(new Set(Object.keys(REMOTE).concat(Object.keys(getH())))), desc: DESC};
   setTimeout(loadRemote, 1500);
   let pend = false;
   new MutationObserver(() => { if (pend) return; pend = true; requestAnimationFrame(() => { pend = false; decorate(); }); }).observe(document.documentElement, {childList: true, subtree: true});

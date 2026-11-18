@@ -146,16 +146,12 @@
     const out = [];
     if (!L()) return out;
     L().ids().forEach((id) => {
-      const h = L().hist(id); if (!h.length) return;
-      const r = byId(id);
+      const st = L().status(id); if (!st) return;
+      const h = st.h, r = byId(id);
       const last = h.slice().sort((a, b) => (parseD(a.d) || 0) - (parseD(b.d) || 0) || a.n - b.n).pop();
-      const a = ANS()[id];
-      const answered = a && a.n >= last.n;
-      const days = daysSince(last.d);
-      const due = !answered && days != null && days >= 30 && last.n < 4;
-      out.push({id, r, h, last, answered, ans: a, days, due});
+      out.push({id, r, h, last, answered: st.answered, ans: st.ans, days: st.days, due: st.state === 'due'});
     });
-    return out.sort((x, y) => (y.due - x.due) || ((parseD(y.last.d) || 0) - (parseD(x.last.d) || 0)));
+    return out.sort((x, y) => (y.due - x.due) || ((y.days || 0) - (x.days || 0)));
   }
   function letterButton() {
     const row = document.querySelector('.pe-pdfrow'); if (!row) return;
@@ -166,7 +162,7 @@
     if (b.dataset.h !== html) { b.dataset.h = html; b.innerHTML = html; }
   }
   function letterList() {
-    const ov = modal('✉️ Επιστολές που στάλθηκαν', 'Ανά έργο, με την τελευταία επιστολή. Όταν περάσουν 30 μέρες χωρίς σημείωση απάντησης, το έργο φαίνεται με ⏰ και προτείνεται η επόμενη επιστολή.');
+    const ov = modal('✉️ Επιστολές που στάλθηκαν', 'Ανά έργο, με την τελευταία επιστολή. Όταν περάσουν 30 μέρες από την 1η επιστολή χωρίς σημείωση απάντησης, το έργο φαίνεται με ⏰ και προτείνεται η επόμενη επιστολή.');
     const body = ov.querySelector('.body');
     const draw = () => {
       const st = letterState();
@@ -175,13 +171,13 @@
       body.innerHTML = `<div class="pe-xtools"><select><option value="all">Όλα (${st.length})</option><option value="due">⏰ Πάνω από 30 μέρες χωρίς απάντηση (${st.filter((s) => s.due).length})</option><option value="open">Χωρίς απάντηση (${st.filter((s) => !s.answered).length})</option><option value="ans">Με απάντηση (${st.filter((s) => s.answered).length})</option></select></div>
         ${list.length ? `<table><tr><th>Έργο</th><th>Επιστολές</th><th>Κατάσταση</th></tr>${list.map((s) => {
           const r = s.r || {};
-          const status = s.answered ? `<span class="pe-st-ok">✔ Απάντηση ${esc(s.ans.d)}</span>` : s.due ? `<span class="pe-st-due">⏰ ${s.days} μέρες χωρίς απάντηση</span>` : `<span class="pe-st-wait">Αναμονή · ${s.days == null ? '—' : s.days + ' μέρες'}</span>`;
+          const status = s.answered ? `<span class="pe-st-ok">✔ Απάντηση ${esc(s.ans.d)}</span>` : s.due ? `<span class="pe-st-due">⏰ ${s.days} μέρες από την 1η επιστολή χωρίς απάντηση</span>` : `<span class="pe-st-wait">Αναμονή · ${s.days == null ? '—' : s.days + ' μέρες'}</span>`;
           const acts = (s.answered ? `<button type="button" class="pe-xsmall unans" data-id="${esc(s.id)}">Αναίρεση απάντησης</button>` : `<button type="button" class="pe-xsmall ans" data-id="${esc(s.id)}">Ήρθε απάντηση</button>`) + (s.last.n < 4 && s.r ? `<button type="button" class="pe-xsmall next" data-id="${esc(s.id)}">Επιστολή ${s.last.n + 1}</button>` : '');
           return `<tr><td>${r.link ? `<a href="${esc(r.link)}" target="_blank" rel="noopener">${esc((r.title || '').slice(0, 140))}</a>` : 'CFT ' + esc(s.id)}<br><small>${esc([r.contractors, r.district].filter(Boolean).join(' · '))}</small></td><td>${s.h.map((e) => `Επ. ${e.n} — ${esc(e.d)}${e.u ? ' (' + esc(e.u.split('@')[0]) + ')' : ''}`).join('<br>')}</td><td>${status}<br>${acts}</td></tr>`;
         }).join('')}</table>` : '<p class="pe-letnote">Δεν υπάρχουν επιστολές σε αυτή την κατηγορία.</p>'}`;
       const s0 = body.querySelector('select'); s0.value = sel; s0.onchange = draw;
-      body.querySelectorAll('.ans').forEach((b) => b.onclick = () => { const s = st.find((x) => x.id === b.dataset.id); const a = ANS(); a[s.id] = {n: s.last.n, d: today()}; LS.set('pe_letans', a); log('Απάντηση σε επιστολή', 'Επ. ' + s.last.n + ' · ' + ((s.r && s.r.title) || '').slice(0, 160) + ' · CFT ' + s.id); draw(); refresh(); });
-      body.querySelectorAll('.unans').forEach((b) => b.onclick = () => { const a = ANS(); delete a[b.dataset.id]; LS.set('pe_letans', a); draw(); refresh(); });
+      body.querySelectorAll('.ans').forEach((b) => b.onclick = () => { const s = st.find((x) => x.id === b.dataset.id); L().setAns(s.id, Math.max(...s.h.map((e) => e.n))); draw(); refresh(); });
+      body.querySelectorAll('.unans').forEach((b) => b.onclick = () => { L().setAns(b.dataset.id, null); draw(); refresh(); });
       body.querySelectorAll('.next').forEach((b) => b.onclick = () => { const r = byId(b.dataset.id); if (r) { ov.remove(); L().openForm(r); } });
     };
     draw();

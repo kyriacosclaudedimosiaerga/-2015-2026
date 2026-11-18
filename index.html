@@ -323,6 +323,7 @@ body{background:#eef2f6}
           <option value="awarded|1">Παλαιότερες αναθέσεις πρώτα</option>
           <option value="awarded_value|-1">Μεγαλύτερη αξία πρώτα</option>
           <option value="awarded_value|1">Μικρότερη αξία πρώτα</option>
+          <option value="letters|-1">Επιστολές: καθυστερημένες (κόκκινες) πρώτα</option>
           <option value="custom" hidden>Από επικεφαλίδα στήλης</option>
         </select>
       </label>
@@ -748,8 +749,9 @@ body{background:#eef2f6}
     const k = P.sort, dir = P.dir;
     const num = ['offers', 'estimated_value', 'awarded_value'].includes(k);
     const sorted = rows.slice().sort((a, b) => {
-      const A = a[k], B = b[k];
-      const c = num ? ((A ?? -1) - (B ?? -1)) : String(A).localeCompare(String(B), 'el');
+      const lk = k === 'letters' && window.peLetterKey;
+      const A = lk ? lk(a) : a[k], B = lk ? lk(b) : b[k];
+      const c = (num || lk) ? ((A ?? -1) - (B ?? -1)) : String(A).localeCompare(String(B), 'el');
       return c * dir || b.awarded_value - a.awarded_value;
     });
     const frag = document.createDocumentFragment();
