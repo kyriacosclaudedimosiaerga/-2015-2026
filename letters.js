@@ -197,6 +197,7 @@
   window.peMakeLetter = makeLetter;
 
   // ---- UI ----
+  const SHORT = {1: 'Μηχανικός · μητρώο', 2: 'Ανάδοχος · Συλλ. Συμβάσεις', 3: 'Μηχανικός · καταγγελία', 4: 'Αναθέτουσα Αρχή'};
   const DESC = {1: 'Προς Υπεύθυνο Μηχανικό — τήρηση μητρώου εργοδοτουμένων', 2: 'Προς Ανάδοχο εταιρεία — τήρηση Συλλογικών Συμβάσεων', 3: 'Προς Υπεύθυνο Μηχανικό — καταγγελία παραβίασης', 4: 'Προς Αναθέτουσα Αρχή — καταγγελία επιβλέποντα (χωρίς ανταπόκριση στην Επ. 3)'};
   const today = () => { const d = new Date(); return String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0') + '/' + d.getFullYear(); };
   // μηδενισμός δοκιμαστικών σημάνσεων (17/11/2026), μία φορά ανά συσκευή
@@ -213,9 +214,14 @@
 .pe-lethist.wait .pe-letchip{color:#7a5a00;background:#fff6d6;border-color:#ecd48a}.pe-lethist.wait .pe-letst{background:#b7860b}
 .pe-lethist.due .pe-letchip{color:#9b1c1c;background:#fde8e8;border-color:#f3b4b4}.pe-lethist.due .pe-letst{background:#b3261e}
 .pe-lethist.due{border-left:4px solid #b3261e;padding-left:6px}
-.pe-letdots{display:inline-flex;gap:3px;margin-left:8px;vertical-align:2px;cursor:pointer;white-space:nowrap}
-.pe-letdots i{font-style:normal;display:inline-block;min-width:17px;height:17px;line-height:15px;text-align:center;font-size:10.5px;font-weight:700;border-radius:4px;border:1px solid #c5ced8;color:#9aa6b2;background:#fff}
-.pe-letdots.ok i.s{background:#2e7d32;border-color:#2e7d32;color:#fff}.pe-letdots.wait i.s{background:#b7860b;border-color:#b7860b;color:#fff}.pe-letdots.due i.s{background:#b3261e;border-color:#b3261e;color:#fff}
+.pe-letdots{display:flex;flex-wrap:wrap;gap:4px;align-items:center;margin:5px 0 2px;cursor:pointer;font-size:11.5px;line-height:1.2}
+.pe-letdots>b{font-weight:600;color:#5b6b7b;margin-right:2px}
+.pe-letdots i{font-style:normal;display:inline-flex;align-items:center;gap:4px;padding:2px 7px;border-radius:10px;border:1px dashed #c5ced8;color:#8796a5;background:#fff;white-space:nowrap}
+.pe-letdots i u{text-decoration:none;font-weight:700}
+.pe-letdots i.s{border-style:solid;font-weight:600}
+.pe-letdots.ok i.s{background:#e8f5ec;border-color:#2e7d32;color:#1e6b34}.pe-letdots.ok i.s u{color:#2e7d32}
+.pe-letdots.wait i.s{background:#fff6d6;border-color:#b7860b;color:#7a5a00}.pe-letdots.wait i.s u{color:#b7860b}
+.pe-letdots.due i.s{background:#fde8e8;border-color:#b3261e;color:#9b1c1c}.pe-letdots.due i.s u{color:#b3261e}
 .pe-letans{font:inherit;font-size:11.5px;padding:1px 7px;border-radius:6px;border:1px solid #1f4e79;background:#fff;color:#1f4e79;cursor:pointer}
 .pe-letov{position:fixed;inset:0;background:rgba(10,20,35,.45);z-index:9999;display:flex;align-items:flex-start;justify-content:center;overflow:auto;padding:24px 12px}
 .pe-letbox{font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;background:#fff;color:#111;max-width:560px;width:100%;border-radius:12px;padding:18px 18px 14px;box-shadow:0 10px 40px rgba(0,0,0,.3);font-size:14px}
@@ -270,7 +276,7 @@
     const chips = s.h.map((e) => '<span class="pe-letchip">✉ Επ. ' + e.n + ' · ' + esc(e.d) + (e.u ? ' · ' + esc(e.u.split('@')[0]) : '') + '</span>').join('');
     const st = s.state === 'ok' ? '✔ Απάντηση ' + esc(s.ans.d) : s.state === 'due' ? '⏰ ' + s.days + ' μέρες από την 1η — χωρίς απάντηση' : '⏳ ' + (s.days == null ? '' : s.days + ' μέρες · ') + 'αναμονή';
     const btn = s.answered ? '<button type="button" class="pe-letans" data-un="1">Αναίρεση</button>' : '<button type="button" class="pe-letans">Ήρθε απάντηση</button>';
-    return {cls: s.state, html: chips + '<span class="pe-letst">' + st + '</span>' + btn, n: s.lastN, answered: s.answered};
+    return {cls: s.state, html: '<span class="pe-letst">' + st + '</span>' + btn, n: s.lastN, answered: s.answered};
   }
 
   function openForm(r) {
@@ -352,8 +358,14 @@
       }
       if (dots.dataset.k !== dk) {
         dots.dataset.k = dk; dots.className = 'pe-letdots ' + (st ? st.state : '');
-        dots.innerHTML = [1, 2, 3, 4].map((n) => '<i class="' + (sent.has(n) ? 's' : '') + '">' + n + '</i>').join('');
-        dots.title = st ? st.h.map((e) => 'Επιστολή ' + e.n + ' — ' + e.d).join('\n') + (st.state === 'due' ? '\n⏰ ' + st.days + ' μέρες από την 1η χωρίς απάντηση' : st.state === 'ok' ? '\n✔ Ήρθε απάντηση' : '') : 'Δεν έχει σταλεί επιστολή · κλικ για νέα';
+        const by = {}; (st ? st.h : []).forEach((e) => { (by[e.n] = by[e.n] || []).push(e); });
+        const sh = (d) => d.replace(/\/(\d{2})(\d{2})$/, '/$2');
+        if (!st) dots.innerHTML = '<b>Επιστολές:</b><i>καμία δεν στάλθηκε ακόμα</i>'; else dots.innerHTML = '<b>Επιστολές:</b>' + [1, 2, 3, 4].map((n) => {
+          const e = by[n];
+          const tip = 'Επιστολή ' + n + ' — ' + DESC[n] + (e ? '\nΣτάλθηκε ' + e.map((x) => x.d + (x.u ? ' (' + x.u.split('@')[0] + ')' : '')).join(', ') : '\nΔεν στάλθηκε');
+          return '<i class="' + (e ? 's' : '') + '" title="' + tip.replace(/"/g, '&quot;') + '"><u>' + n + '</u>' + SHORT[n] + (e ? ' · ✔ ' + sh(e[e.length - 1].d) : '') + '</i>';
+        }).join('');
+        dots.title = st ? '' : 'Δεν έχει σταλεί επιστολή · κλικ για νέα επιστολή';
       }
       let hs = tc.querySelector('.pe-lethist'); const t = histHTML(id);
       if (t) {
