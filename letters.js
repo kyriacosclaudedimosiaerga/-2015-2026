@@ -165,9 +165,15 @@
     };
   }
 
-  async function makeLetter(n, d) {
+  async function makeLetter(n, d) { return makeLetters([{n, d}], 'Επιστολή ' + n); }
+  async function makeLetters(items, title) {
     const F = await loadFonts(); F.r.used = new Map(); F.b.used = new Map();
-    const pages = [new Page()]; const st = {y: 80};
+    const pages = []; let label = '';
+    for (const it of items) { label = addLetter(F, pages, it.n, it.d); }
+    return {bytes: await writePdf(pages, F, title || 'Επιστολές'), label};
+  }
+  function addLetter(F, pages, n, d) {
+    pages.push(new Page()); const st = {y: 80};
     const L = letterBody(n, d);
     layout(F, pages, st, [T(d.date)], {align: 'right', after: 18});
     L.to.forEach((r, i) => layout(F, pages, st, [r], {align: 'left', size: n === 1 ? 13 : 11.5, after: i === L.to.length - 1 ? 16 : 0}));
@@ -191,8 +197,7 @@
     p.text(F.b, 'F2', 'Κοινοποίηση:', s, colL, y); p.line(colL, y + 2, colL + width(F.b, 'Κοινοποίηση:', s), y + 2); y += s * 1.6;
     st.y = y;
     L.cc.forEach((c) => layout(F, pages, st, [T(c)], {align: 'left', after: 0}));
-    const title = 'Επιστολή ' + n;
-    return {bytes: await writePdf(pages, F, title), label: L.label};
+    return L.label;
   }
   window.peMakeLetter = makeLetter;
 
@@ -232,7 +237,14 @@
 .pe-letn label{display:flex;gap:8px;align-items:flex-start;font-weight:400;margin:0;padding:7px 9px;border:1px solid #d5dee8;border-radius:8px;cursor:pointer}
 .pe-letn input{width:auto;margin-top:3px}.pe-letact{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
 .pe-letact button{font:inherit;font-size:14px;padding:8px 14px;border-radius:8px;border:1px solid #1f4e79;cursor:pointer;background:#fff;color:#1f4e79}
-.pe-letact .go{background:#1f4e79;color:#fff}.pe-letnote{font-size:12px;color:#666;margin-top:8px}`;
+.pe-letact .go{background:#1f4e79;color:#fff}.pe-letact .go[disabled]{opacity:.5;cursor:default}
+.pe-bulk{max-width:680px}.pe-bulk .pe-bchk{display:flex;gap:8px;align-items:center;font-weight:500}.pe-bulk .pe-bchk input{width:auto}
+.pe-bq{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}.pe-bq button{font:inherit;font-size:12.5px;padding:4px 10px;border-radius:14px;border:1px solid #1f4e79;background:#fff;color:#1f4e79;cursor:pointer}
+.pe-bsum{margin:14px 0 6px;font-size:13.5px;padding:8px 10px;background:#eef3f8;border-radius:8px}
+.pe-blist{max-height:300px;overflow:auto;border:1px solid #d5dee8;border-radius:8px}
+.pe-blist label{display:flex;gap:8px;align-items:flex-start;font-weight:400;margin:0;padding:6px 9px;border-bottom:1px solid #eef2f6;font-size:12.5px;cursor:pointer}
+.pe-blist input{width:auto;margin-top:2px}.pe-blist small{display:block;color:#667;font-size:11.5px}
+.pe-bulkbtn{font:inherit;font-size:14px;margin-left:6px;padding:7px 12px;border-radius:8px;border:1px solid #1f4e79;background:#fff;color:#1f4e79;cursor:pointer}.pe-letnote{font-size:12px;color:#666;margin-top:8px}`;
   document.head.appendChild(css);
 
   function allRows() { if (window.__ROWS__) return window.__ROWS__; try { const d = window.dash && window.dash.data && window.dash.data('works'); return (d && d.data) || []; } catch (e) { return []; } }
@@ -279,6 +291,85 @@
     return {cls: s.state, html: '<span class="pe-letst">' + st + '</span>' + btn, n: s.lastN, answered: s.answered};
   }
 
+  async function savePdf(bytes, name, title) {
+    const file = new File([bytes], name, {type: 'application/pdf'});
+    let dl = null;
+    try { dl = window.claude && window.claude.use ? await window.claude.use('downloads') : null; } catch (e) { dl = null; }
+    if (dl) {
+      try { await dl.save({filename: name, data: new Blob([bytes], {type: 'application/pdf'})}); }
+      catch (e) { if (e && e.code === 'declined') return false; throw e; }
+    } else if (navigator.canShare && navigator.canShare({files: [file]}) && /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)) {
+      try { await navigator.share({files: [file], title}); } catch (e) { if (e.name !== 'AbortError') throw e; }
+    } else {
+      const a = document.createElement('a'); a.href = URL.createObjectURL(file); a.download = name; document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+    }
+    return true;
+  }
+  const eoOf = (r) => String(r.contractors || '').split(';').map((x) => x.trim()).filter(Boolean).join(' και ');
+  const eurF = new Intl.NumberFormat('el-GR', {style: 'currency', currency: 'EUR', maximumFractionDigits: 0});
+
+  // ---- Μαζικές επιστολές: ίδια επιστολή σε όλα τα έργα πάνω από ένα ποσό ----
+  function openBulk() {
+    const ov = document.createElement('div'); ov.className = 'pe-letov';
+    let mv = 1000000; try { mv = +(localStorage.getItem('pe_bulkmin') || mv) || mv; } catch (e) {}
+    ov.innerHTML = `<div class="pe-letbox pe-bulk" role="dialog" aria-label="Μαζικές επιστολές">
+      <h3>✉️ Μαζικές επιστολές</h3><div class="sub">Η ίδια επιστολή για όλα τα έργα πάνω από ένα ποσό, σε ένα PDF (μία επιστολή ανά σελίδα) για εκτύπωση.</div>
+      <label>Ποια επιστολή</label><div class="pe-letn">${[1, 2, 3, 4].map((n) => `<label><input type="radio" name="pe-bn" value="${n}" ${n === 1 ? 'checked' : ''}><span><b>Επιστολή ${n}</b> — ${DESC[n]}</span></label>`).join('')}</div>
+      <label>Ανατεθείσα αξία πάνω από (€)</label><input name="min" inputmode="numeric">
+      <div class="pe-bq">${[100000, 500000, 1000000, 5000000].map((v) => `<button type="button" data-v="${v}">${eurF.format(v)}</button>`).join('')}</div>
+      <label class="pe-bchk"><input type="checkbox" name="flt" checked> Μόνο τα έργα με τα τρέχοντα φίλτρα (έτος, επαρχία κ.λπ.)</label>
+      <label class="pe-bchk"><input type="checkbox" name="skip" checked> Παράλειψη έργων όπου έχει ήδη σταλεί αυτή η επιστολή</label>
+      <label>Ημερομηνία επιστολών</label><input name="date">
+      <label>Επαρχία υπογραφών όταν η επαρχία του έργου δεν προσδιορίζεται</label><select name="dd">${Object.keys(GEN).map((k) => `<option>${k}</option>`).join('')}</select>
+      <label class="pe-bchk"><input type="checkbox" name="deok"> Προσθήκη ΔΕΟΚ στις υπογραφές</label>
+      <div class="pe-bsum"></div><div class="pe-blist"></div>
+      <div class="pe-letnote">Η επαρχία στις υπογραφές μπαίνει αυτόματα από κάθε έργο. Για την Επιστολή 2 η διεύθυνση της εταιρείας μένει κενή. Μετά τη δημιουργία, κάθε έργο σημειώνεται «τυπώθηκε & στάλθηκε» και καταγράφεται στο αρχείο.</div>
+      <div class="pe-letact"><button type="button" class="cancel">Άκυρο</button><button type="button" class="go">Δημιουργία PDF</button></div></div>`;
+    const q = (x) => ov.querySelector(x);
+    q('[name=min]').value = mv; q('[name=date]').value = today();
+    try { q('[name=deok]').checked = localStorage.getItem('pe_deok') === '1'; } catch (e) {}
+    let list = [], off = new Set();
+    const num = () => +String(q('[name=min]').value).replace(/[^\d]/g, '') || 0;
+    const draw = () => {
+      const n = +ov.querySelector('[name=pe-bn]:checked').value, min = num();
+      const src = q('[name=flt]').checked && window.peFiltered ? (window.peFiltered() || []) : allRows();
+      list = src.filter((r) => (r.awarded_value || 0) > min && !(q('[name=skip]').checked && hist(r.id).some((e) => e.n === n))).sort((a, b) => b.awarded_value - a.awarded_value);
+      const sel = list.filter((r) => !off.has(String(r.id)));
+      const tot = sel.reduce((a, r) => a + (r.awarded_value || 0), 0);
+      q('.pe-bsum').innerHTML = list.length ? `<b>${sel.length}</b> από ${list.length} έργα επιλεγμένα · συνολική αξία <b>${eurF.format(tot)}</b>${sel.length > 300 ? ' · <span style="color:#b3261e">πάνω από 300 — μειώστε με μεγαλύτερο ποσό ή φίλτρα</span>' : ''}` : 'Κανένα έργο με αυτά τα κριτήρια.';
+      q('.pe-blist').innerHTML = list.slice(0, 500).map((r) => `<label><input type="checkbox" data-id="${r.id}" ${off.has(String(r.id)) ? '' : 'checked'}><span><b>${eurF.format(r.awarded_value)}</b> · ${String(r.title).replace(/[<]/g, '&lt;').slice(0, 110)}<small>${[eoOf(r), r.district].filter(Boolean).join(' · ').replace(/[<]/g, '&lt;')}</small></span></label>`).join('');
+      q('.pe-blist').querySelectorAll('input').forEach((c) => c.onchange = () => { c.checked ? off.delete(c.dataset.id) : off.add(c.dataset.id); draw(); });
+      const go = q('.go'); go.disabled = !sel.length || sel.length > 300; go.textContent = 'Δημιουργία PDF (' + sel.length + ' επιστολές)';
+    };
+    ov.querySelectorAll('.pe-bq button').forEach((b) => b.onclick = () => { q('[name=min]').value = b.dataset.v; off.clear(); draw(); });
+    ov.querySelectorAll('[name=pe-bn],[name=flt],[name=skip]').forEach((x) => x.addEventListener('change', () => { off.clear(); draw(); }));
+    q('[name=min]').addEventListener('input', () => { off.clear(); draw(); });
+    ov.addEventListener('click', (e) => { if (e.target === ov) ov.remove(); });
+    q('.cancel').onclick = () => ov.remove();
+    q('.go').onclick = async () => {
+      const btn = q('.go'); const sel = list.filter((r) => !off.has(String(r.id))); if (!sel.length) return;
+      btn.disabled = true; btn.textContent = 'Δημιουργία ' + sel.length + ' επιστολών…';
+      const n = +ov.querySelector('[name=pe-bn]:checked').value, date = q('[name=date]').value.trim(), deok = q('[name=deok]').checked, dd = q('[name=dd]').value;
+      try { localStorage.setItem('pe_bulkmin', String(num())); localStorage.setItem('pe_deok', deok ? '1' : '0'); } catch (e) {}
+      const items = sel.map((r) => ({r, n, d: {project: r.title, contractor: eoOf(r), authority: r.authority, address: '', district: GEN[r.district] ? r.district : dd, date, deok}}));
+      try {
+        const {bytes, label} = await makeLetters(items, 'Επιστολή ' + n + ' — ' + sel.length + ' έργα');
+        const name = 'Epistoles_' + n + '_' + sel.length + '_erga_' + date.replace(/\//g, '-') + '.pdf';
+        if (!(await savePdf(bytes, name, 'Επιστολή ' + n + ' — ' + sel.length + ' έργα'))) { btn.disabled = false; draw(); return; }
+        const h = getH(), u = (window.peLogCfg && window.peLogCfg.user) || '';
+        items.forEach((it) => { (h[it.r.id] = h[it.r.id] || []).push({n, d: date, u, t: Date.now()}); }); setH(h);
+        if (window.peLog) {
+          window.peLog('Μαζικές επιστολές', 'Επιστολή ' + n + ' · ' + sel.length + ' έργα πάνω από ' + eurF.format(num()) + ' · Ημ/νία: ' + date);
+          items.forEach((it, i) => setTimeout(() => { try { window.peLog('Επιστολή ' + n, 'Προς: ' + label + ' · Έργο: ' + it.d.project.slice(0, 160) + ' · Ανάδοχος: ' + it.d.contractor + ' · Αρχή: ' + it.d.authority + ' · Επαρχία: ' + it.d.district + ' · Υπογραφές: ' + (deok ? 'ΠΕΟ, ΣΕΚ, ΔΕΟΚ' : 'ΠΕΟ, ΣΕΚ') + ' · Ημ/νία επιστολής: ' + date + ' · CFT ' + it.r.id + ' · μαζική'); } catch (e) {} }, 400 * (i + 1)));
+        }
+        ov.remove(); decorate(); try { document.dispatchEvent(new Event('pe-letters')); } catch (e) {}
+      } catch (e) { alert('Δεν ήταν δυνατή η δημιουργία των επιστολών. ' + (e && e.message ? e.message : '')); btn.disabled = false; draw(); }
+    };
+    document.body.appendChild(ov); draw();
+  }
+  window.peOpenBulk = openBulk;
+
   function openForm(r) {
     const ov = document.createElement('div'); ov.className = 'pe-letov';
     const eo = String(r.contractors || '').split(';').map((s) => s.trim()).filter(Boolean).join(' και ');
@@ -310,18 +401,7 @@
       try {
         const {bytes, label} = await makeLetter(n, d);
         const name = 'Epistoli_' + n + '_' + r.id + '_' + d.date.replace(/\//g, '-') + '.pdf';
-        const file = new File([bytes], name, {type: 'application/pdf'});
-        let dl = null;
-        try { dl = window.claude && window.claude.use ? await window.claude.use('downloads') : null; } catch (e) { dl = null; }
-        if (dl) {
-          try { await dl.save({filename: name, data: new Blob([bytes], {type: 'application/pdf'})}); }
-          catch (e) { if (e && e.code === 'declined') { btn.disabled = false; btn.textContent = 'Δημιουργία PDF'; return; } throw e; }
-        } else if (navigator.canShare && navigator.canShare({files: [file]}) && /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)) {
-          try { await navigator.share({files: [file], title: 'Επιστολή ' + n}); } catch (e) { if (e.name !== 'AbortError') throw e; }
-        } else {
-          const a = document.createElement('a'); a.href = URL.createObjectURL(file); a.download = name; document.body.appendChild(a); a.click(); a.remove();
-          setTimeout(() => URL.revokeObjectURL(a.href), 60000);
-        }
+        if (!(await savePdf(bytes, name, 'Επιστολή ' + n))) { btn.disabled = false; btn.textContent = 'Δημιουργία PDF'; return; }
         const h = getH(); (h[r.id] = h[r.id] || []).push({n, d: d.date, u: (window.peLogCfg && window.peLogCfg.user) || '', t: Date.now()}); setH(h);
         if (window.peLog) window.peLog('Επιστολή ' + n, 'Προς: ' + label + ' · Έργο: ' + d.project.slice(0, 160) + ' · Ανάδοχος: ' + d.contractor + ' · Αρχή: ' + d.authority + ' · Επαρχία: ' + d.district + ' · Υπογραφές: ' + (d.deok ? 'ΠΕΟ, ΣΕΚ, ΔΕΟΚ' : 'ΠΕΟ, ΣΕΚ') + ' · Ημ/νία επιστολής: ' + d.date + ' · CFT ' + r.id);
         ov.remove(); decorate(); try { document.dispatchEvent(new Event('pe-letters')); } catch (e) {}
@@ -333,6 +413,8 @@
   }
 
   function decorate() {
+    const pr = document.querySelector('.pe-pdfrow');
+    if (pr && !pr.querySelector('.pe-bulkbtn')) { const bb = document.createElement('button'); bb.type = 'button'; bb.className = 'pe-bulkbtn'; bb.textContent = '✉️ Μαζικές επιστολές'; bb.onclick = openBulk; pr.appendChild(bb); }
     document.querySelectorAll('tr[data-key] td.title').forEach((tc) => {
       const id = tc.parentElement.dataset.key;
       let b = tc.querySelector('.pe-letbtn');
