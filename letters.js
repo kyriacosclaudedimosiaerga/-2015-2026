@@ -213,6 +213,9 @@
 .pe-lethist.wait .pe-letchip{color:#7a5a00;background:#fff6d6;border-color:#ecd48a}.pe-lethist.wait .pe-letst{background:#b7860b}
 .pe-lethist.due .pe-letchip{color:#9b1c1c;background:#fde8e8;border-color:#f3b4b4}.pe-lethist.due .pe-letst{background:#b3261e}
 .pe-lethist.due{border-left:4px solid #b3261e;padding-left:6px}
+.pe-letdots{display:inline-flex;gap:3px;margin-left:8px;vertical-align:2px;cursor:pointer;white-space:nowrap}
+.pe-letdots i{font-style:normal;display:inline-block;min-width:17px;height:17px;line-height:15px;text-align:center;font-size:10.5px;font-weight:700;border-radius:4px;border:1px solid #c5ced8;color:#9aa6b2;background:#fff}
+.pe-letdots.ok i.s{background:#2e7d32;border-color:#2e7d32;color:#fff}.pe-letdots.wait i.s{background:#b7860b;border-color:#b7860b;color:#fff}.pe-letdots.due i.s{background:#b3261e;border-color:#b3261e;color:#fff}
 .pe-letans{font:inherit;font-size:11.5px;padding:1px 7px;border-radius:6px;border:1px solid #1f4e79;background:#fff;color:#1f4e79;cursor:pointer}
 .pe-letov{position:fixed;inset:0;background:rgba(10,20,35,.45);z-index:9999;display:flex;align-items:flex-start;justify-content:center;overflow:auto;padding:24px 12px}
 .pe-letbox{font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;background:#fff;color:#111;max-width:560px;width:100%;border-radius:12px;padding:18px 18px 14px;box-shadow:0 10px 40px rgba(0,0,0,.3);font-size:14px}
@@ -338,6 +341,19 @@
           const sm = tc.querySelector('small'); tc.insertBefore(box, sm || null);
         }
         const lr = document.createElement('div'); lr.className = 'pe-actrow'; lr.appendChild(b); box.appendChild(lr);
+      }
+      const st = status(id), sent = new Set(st ? st.h.map((e) => e.n) : []);
+      const dk = (st ? st.state : '') + '|' + Array.from(sent).join(',');
+      let dots = tc.querySelector('.pe-letdots');
+      if (!dots) {
+        dots = document.createElement('span'); dots.className = 'pe-letdots';
+        const a = tc.querySelector('a:not(.pe-map)'); if (a) a.after(dots); else tc.prepend(dots);
+        dots.onclick = (e) => { e.preventDefault(); const r = rowById(id); if (r) openForm(r); };
+      }
+      if (dots.dataset.k !== dk) {
+        dots.dataset.k = dk; dots.className = 'pe-letdots ' + (st ? st.state : '');
+        dots.innerHTML = [1, 2, 3, 4].map((n) => '<i class="' + (sent.has(n) ? 's' : '') + '">' + n + '</i>').join('');
+        dots.title = st ? st.h.map((e) => 'Επιστολή ' + e.n + ' — ' + e.d).join('\n') + (st.state === 'due' ? '\n⏰ ' + st.days + ' μέρες από την 1η χωρίς απάντηση' : st.state === 'ok' ? '\n✔ Ήρθε απάντηση' : '') : 'Δεν έχει σταλεί επιστολή · κλικ για νέα';
       }
       let hs = tc.querySelector('.pe-lethist'); const t = histHTML(id);
       if (t) {
