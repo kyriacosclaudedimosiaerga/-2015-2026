@@ -170,7 +170,7 @@ body{background:#eef2f6}
 @media print { .pe-map { display: none !important; } }
 .pe-link:hover { text-decoration-color: currentColor; }
 .pe-sortsel { display: flex; align-items: center; gap: 6px; font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
-.pe-sortsel select { font: inherit; font-size: var(--cds-font-size-body); color: var(--color-fg); background: var(--color-bg); border: 1px solid var(--color-border-line); border-radius: 6px; padding: 5px 8px; }
+.pe-sortsel select { font: inherit; font-size: 13.5px; color: var(--color-fg); background: var(--color-bg); border: 1px solid var(--color-border-line); border-radius: 6px; padding: 3px 6px; width: auto !important; max-width: 190px; min-width: 0; flex: 0 0 auto; height: auto; }
 .pe-tablebar { display: flex; justify-content: space-between; align-items: baseline; gap: var(--cds-gap-md); flex-wrap: wrap; margin-bottom: var(--cds-gap-sm); }
 .pe-scroll { max-height: 640px; overflow: auto; border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); }
 .pe-table { width: 100%; border-collapse: collapse; font-size: var(--cds-font-size-body); font-variant-numeric: tabular-nums; }
@@ -319,12 +319,12 @@ body{background:#eef2f6}
       <span class="pe-note" data-draw="t-shown" data-source="works">—</span>
       <label class="pe-sortsel">Ταξινόμηση
         <select class="pe-sortpick" aria-label="Ταξινόμηση πίνακα">
-          <option value="awarded|-1">Νεότερες αναθέσεις πρώτα</option>
-          <option value="awarded|1">Παλαιότερες αναθέσεις πρώτα</option>
-          <option value="awarded_value|-1">Μεγαλύτερη αξία πρώτα</option>
-          <option value="awarded_value|1">Μικρότερη αξία πρώτα</option>
-          <option value="letters|-1">Επιστολές: καθυστερημένες (κόκκινες) πρώτα</option>
-          <option value="custom" hidden>Από επικεφαλίδα στήλης</option>
+          <option value="awarded|-1">Νεότερα πρώτα</option>
+          <option value="awarded|1">Παλαιότερα πρώτα</option>
+          <option value="awarded_value|-1">Μεγαλύτερη αξία</option>
+          <option value="awarded_value|1">Μικρότερη αξία</option>
+          <option value="letters|-1">Καθυστερημένες επιστολές</option>
+          <option value="custom" hidden>Από στήλη</option>
         </select>
       </label>
     </div>
