@@ -227,6 +227,7 @@
 .pe-letdots.ok i.s{background:#e8f5ec;border-color:#2e7d32;color:#1e6b34}.pe-letdots.ok i.s u{color:#2e7d32}
 .pe-letdots.wait i.s{background:#fff6d6;border-color:#b7860b;color:#7a5a00}.pe-letdots.wait i.s u{color:#b7860b}
 .pe-letdots.due i.s{background:#fde8e8;border-color:#b3261e;color:#9b1c1c}.pe-letdots.due i.s u{color:#b3261e}
+.pe-letdel{font:inherit;font-size:11.5px;padding:1px 6px;border-radius:6px;border:1px solid #b3261e;background:#fff;color:#b3261e;cursor:pointer}
 .pe-letans{font:inherit;font-size:11.5px;padding:1px 7px;border-radius:6px;border:1px solid #1f4e79;background:#fff;color:#1f4e79;cursor:pointer}
 .pe-letov{position:fixed;inset:0;background:rgba(10,20,35,.45);z-index:9999;display:flex;align-items:flex-start;justify-content:center;overflow:auto;padding:24px 12px}
 .pe-letbox{font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;background:#fff;color:#111;max-width:560px;width:100%;border-radius:12px;padding:18px 18px 14px;box-shadow:0 10px 40px rgba(0,0,0,.3);font-size:14px}
@@ -260,8 +261,33 @@
       REMOTE = m; decorate(); try { document.dispatchEvent(new Event('pe-letters')); } catch (e) {}
     } catch (e) {}
   }
+  // διαγραμμένες επιστολές: pe_letdel = {"id|n|d": 1}, pe_letdelall = {id: ms} (όλες μέχρι εκείνη τη στιγμή)
+  const LSJ = (k) => { try { return JSON.parse(localStorage.getItem(k) || '{}') || {}; } catch (e) { return {}; } };
+  const pDm = (x) => { const m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})/.exec(x || ''); return m ? new Date(+m[3], +m[2] - 1, +m[1]).getTime() : 0; };
+  function isDel(id, e) { const D = LSJ('pe_letdel'); if (D[id + '|' + e.n + '|' + e.d]) return true; const A = LSJ('pe_letdelall'); return !!(A[id] && (e.t ? e.t <= A[id] : pDm(e.d) <= A[id])); }
+  function delLetters(id, list) {
+    const D = LSJ('pe_letdel'); list.forEach((e) => { D[id + '|' + e.n + '|' + e.d] = 1; });
+    try { localStorage.setItem('pe_letdel', JSON.stringify(D)); } catch (e) {}
+    const h = getH(); if (h[id]) { h[id] = h[id].filter((x) => !list.some((e) => e.n === x.n && e.d === x.d)); if (!h[id].length) delete h[id]; setH(h); }
+    const a = ANS(); if (a[id] && !hist(id).length) { delete a[id]; try { localStorage.setItem('pe_letans', JSON.stringify(a)); } catch (e) {} }
+    const r = rowById(id); try { window.peLog && window.peLog('Διαγραφή επιστολής', list.map((e) => 'Επ. ' + e.n + ' ' + e.d).join(', ') + ' · ' + (r ? r.title.slice(0, 160) : '') + ' · CFT ' + id); } catch (e) {}
+    decorate(); try { document.dispatchEvent(new Event('pe-letters')); } catch (e) {}
+  }
+  // μία φορά: διαγραφή των επιστολών για τα έργα της Pantazis metal ltd (αίτημα 18/11/2026)
+  try { if (localStorage.getItem('pe_del_pantazis') !== '1') { const A = LSJ('pe_letdelall'), now = Date.now(); ['7111904', '8137552', '8190653', '9293060'].forEach((id) => { A[id] = now; }); localStorage.setItem('pe_letdelall', JSON.stringify(A));
+    const h = getH(); ['7111904', '8137552', '8190653', '9293060'].forEach((id) => delete h[id]); setH(h); const a = LSJ('pe_letans'); ['7111904', '8137552', '8190653', '9293060'].forEach((id) => delete a[id]); localStorage.setItem('pe_letans', JSON.stringify(a)); localStorage.setItem('pe_del_pantazis', '1'); } } catch (e) {}
+  function openDel(id) {
+    const h = hist(id); if (!h.length) return; const r = rowById(id);
+    const ov = document.createElement('div'); ov.className = 'pe-letov';
+    ov.innerHTML = `<div class="pe-letbox" role="dialog"><h3>🗑 Διαγραφή επιστολών</h3><div class="sub"></div><div class="pe-letn">${h.map((e, i) => `<label><input type="checkbox" data-i="${i}" checked><span><b>Επιστολή ${e.n}</b> — ${e.d}${e.u ? ' (' + String(e.u).split('@')[0] + ')' : ''}</span></label>`).join('')}</div><div class="pe-letnote">Οι επιστολές που θα διαγραφούν δεν θα φαίνονται πια στο έργο ούτε στη λίστα επιστολών. Η διαγραφή καταγράφεται στο αρχείο χρήσης.</div><div class="pe-letact"><button type="button" class="cancel">Άκυρο</button><button type="button" class="go">Διαγραφή</button></div></div>`;
+    ov.querySelector('.sub').textContent = r ? r.title.slice(0, 160) : 'CFT ' + id;
+    ov.addEventListener('click', (e) => { if (e.target === ov) ov.remove(); });
+    ov.querySelector('.cancel').onclick = () => ov.remove();
+    ov.querySelector('.go').onclick = () => { const sel = [...ov.querySelectorAll('input:checked')].map((c) => h[+c.dataset.i]); if (sel.length) delLetters(id, sel); ov.remove(); };
+    document.body.appendChild(ov);
+  }
   function hist(id) {
-    const all = (REMOTE[id] || []).concat((getH()[id] || []).map((e) => ({n: e.n, d: e.d, u: e.u || ''})));
+    const all = (REMOTE[id] || []).concat((getH()[id] || []).map((e) => ({n: e.n, d: e.d, u: e.u || '', t: e.t}))).filter((e) => !isDel(id, e));
     const seen = new Set(); return all.filter((e) => { const k = e.n + '|' + e.d; if (seen.has(k)) return false; seen.add(k); return true; }).sort((a, b) => a.n - b.n);
   }
   const pD = (x) => { const m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})/.exec(x || ''); return m ? new Date(+m[3], +m[2] - 1, +m[1]) : null; };
@@ -287,7 +313,7 @@
     const esc = (x) => String(x).replace(/[&<>"]/g, (c) => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c]));
     const chips = s.h.map((e) => '<span class="pe-letchip">✉ Επ. ' + e.n + ' · ' + esc(e.d) + (e.u ? ' · ' + esc(e.u.split('@')[0]) : '') + '</span>').join('');
     const st = s.state === 'ok' ? '✔ Απάντηση ' + esc(s.ans.d) : s.state === 'due' ? '⏰ ' + s.days + ' μέρες από την 1η — χωρίς απάντηση' : '⏳ ' + (s.days == null ? '' : s.days + ' μέρες · ') + 'αναμονή';
-    const btn = s.answered ? '<button type="button" class="pe-letans" data-un="1">Αναίρεση</button>' : '<button type="button" class="pe-letans">Ήρθε απάντηση</button>';
+    const btn = (s.answered ? '<button type="button" class="pe-letans" data-un="1">Αναίρεση</button>' : '<button type="button" class="pe-letans">Ήρθε απάντηση</button>') + '<button type="button" class="pe-letdel" title="Διαγραφή επιστολής">🗑</button>';
     return {cls: s.state, html: '<span class="pe-letst">' + st + '</span>' + btn, n: s.lastN, answered: s.answered};
   }
 
@@ -469,11 +495,12 @@
         if (hs.dataset.h !== t.html || hs.className !== cls) {
           hs.className = cls; hs.dataset.h = t.html; hs.innerHTML = t.html;
           const ab = hs.querySelector('.pe-letans'); if (ab) ab.onclick = (e) => { e.preventDefault(); setAns(id, t.answered ? null : t.n); };
+          const db = hs.querySelector('.pe-letdel'); if (db) db.onclick = (e) => { e.preventDefault(); openDel(id); };
         }
       } else if (hs) hs.remove();
     });
   }
-  window.peLetters = {hist, status, setAns, rowById, allRows, openForm, ids: () => Array.from(new Set(Object.keys(REMOTE).concat(Object.keys(getH())))), desc: DESC};
+  window.peLetters = {hist, status, setAns, openDel, rowById, allRows, openForm, ids: () => Array.from(new Set(Object.keys(REMOTE).concat(Object.keys(getH())))), desc: DESC};
   setTimeout(loadRemote, 1500);
   let pend = false;
   new MutationObserver(() => { if (pend) return; pend = true; requestAnimationFrame(() => { pend = false; decorate(); }); }).observe(document.documentElement, {childList: true, subtree: true});

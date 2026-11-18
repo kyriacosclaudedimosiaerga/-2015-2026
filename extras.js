@@ -172,12 +172,13 @@
         ${list.length ? `<table><tr><th>Έργο</th><th>Επιστολές</th><th>Κατάσταση</th></tr>${list.map((s) => {
           const r = s.r || {};
           const status = s.answered ? `<span class="pe-st-ok">✔ Απάντηση ${esc(s.ans.d)}</span>` : s.due ? `<span class="pe-st-due">⏰ ${s.days} μέρες από την 1η επιστολή χωρίς απάντηση</span>` : `<span class="pe-st-wait">Αναμονή · ${s.days == null ? '—' : s.days + ' μέρες'}</span>`;
-          const acts = (s.answered ? `<button type="button" class="pe-xsmall unans" data-id="${esc(s.id)}">Αναίρεση απάντησης</button>` : `<button type="button" class="pe-xsmall ans" data-id="${esc(s.id)}">Ήρθε απάντηση</button>`) + (s.last.n < 4 && s.r ? `<button type="button" class="pe-xsmall next" data-id="${esc(s.id)}">Επιστολή ${s.last.n + 1}</button>` : '');
+          const acts = (s.answered ? `<button type="button" class="pe-xsmall unans" data-id="${esc(s.id)}">Αναίρεση απάντησης</button>` : `<button type="button" class="pe-xsmall ans" data-id="${esc(s.id)}">Ήρθε απάντηση</button>`) + (s.last.n < 4 && s.r ? `<button type="button" class="pe-xsmall next" data-id="${esc(s.id)}">Επιστολή ${s.last.n + 1}</button>` : '') + `<button type="button" class="pe-xsmall del" data-id="${esc(s.id)}" style="border-color:#b3261e;color:#b3261e">🗑 Διαγραφή</button>`;
           return `<tr><td>${r.link ? `<a href="${esc(r.link)}" target="_blank" rel="noopener">${esc((r.title || '').slice(0, 140))}</a>` : 'CFT ' + esc(s.id)}<br><small>${esc([r.contractors, r.district].filter(Boolean).join(' · '))}</small></td><td>${s.h.map((e) => `Επ. ${e.n} — ${esc(e.d)}${e.u ? ' (' + esc(e.u.split('@')[0]) + ')' : ''}`).join('<br>')}</td><td>${status}<br>${acts}</td></tr>`;
         }).join('')}</table>` : '<p class="pe-letnote">Δεν υπάρχουν επιστολές σε αυτή την κατηγορία.</p>'}`;
       const s0 = body.querySelector('select'); s0.value = sel; s0.onchange = draw;
       body.querySelectorAll('.ans').forEach((b) => b.onclick = () => { const s = st.find((x) => x.id === b.dataset.id); L().setAns(s.id, Math.max(...s.h.map((e) => e.n))); draw(); refresh(); });
       body.querySelectorAll('.unans').forEach((b) => b.onclick = () => { L().setAns(b.dataset.id, null); draw(); refresh(); });
+      body.querySelectorAll('.del').forEach((b) => b.onclick = () => { ov.remove(); L().openDel(b.dataset.id); });
       body.querySelectorAll('.next').forEach((b) => b.onclick = () => { const r = byId(b.dataset.id); if (r) { ov.remove(); L().openForm(r); } });
     };
     draw();
