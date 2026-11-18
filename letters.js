@@ -237,7 +237,7 @@
 .pe-letn label{display:flex;gap:8px;align-items:flex-start;font-weight:400;margin:0;padding:7px 9px;border:1px solid #d5dee8;border-radius:8px;cursor:pointer}
 .pe-letn input{width:auto;margin-top:3px}.pe-letact{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
 .pe-letact button{font:inherit;font-size:14px;padding:8px 14px;border-radius:8px;border:1px solid #1f4e79;cursor:pointer;background:#fff;color:#1f4e79}
-.pe-letact .go{background:#1f4e79;color:#fff}.pe-letact .go[disabled]{opacity:.5;cursor:default}
+.pe-letact .go{background:#1f4e79;color:#fff}.pe-eonote{font-size:12px;color:#1e6b34;margin-top:4px;line-height:1.4}.pe-eonote a{color:#1f4e79}.pe-letact .go[disabled]{opacity:.5;cursor:default}
 .pe-bulk{max-width:680px}.pe-bulk .pe-bchk{display:flex;gap:8px;align-items:center;font-weight:500}.pe-bulk .pe-bchk input{width:auto}
 .pe-bq{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}.pe-bq button{font:inherit;font-size:12.5px;padding:4px 10px;border-radius:14px;border:1px solid #1f4e79;background:#fff;color:#1f4e79;cursor:pointer}
 .pe-bsum{margin:14px 0 6px;font-size:13.5px;padding:8px 10px;background:#eef3f8;border-radius:8px}
@@ -306,6 +306,16 @@
     }
     return true;
   }
+  // Διεύθυνση εγγεγραμμένου γραφείου από τον Έφορο Εταιρειών (window.__EOADDR, ανοικτά δεδομένα data.gov.cy)
+  const EOSEARCH = 'https://efiling.drcor.mcit.gov.cy/DrcorPublic/SearchForm.aspx?sc=0&cultureInfo=el-GR';
+  function eoInfo(r) {
+    const A = (window.__EOADDR && window.__EOADDR.a) || {};
+    let names = []; try { names = JSON.parse(r.contractor_split).map((x) => x[0]); } catch (e) { names = String(r.contractors || '').split(';'); }
+    names = names.map((x) => String(x || '').trim()).filter(Boolean);
+    for (const n of names) { const v = A[n]; if (v && v[2]) return {name: n, reg: v[0], active: !!v[1], addr: v[2], rname: v[3] || ''}; }
+    return names.length ? {name: names[0], reg: '', active: false, addr: ''} : null;
+  }
+  const eoDate = () => (window.__EOADDR && window.__EOADDR.meta && window.__EOADDR.meta.date) || '';
   const eoOf = (r) => String(r.contractors || '').split(';').map((x) => x.trim()).filter(Boolean).join(' και ');
   const eurF = new Intl.NumberFormat('el-GR', {style: 'currency', currency: 'EUR', maximumFractionDigits: 0});
 
@@ -324,7 +334,7 @@
       <label>Επαρχία υπογραφών όταν η επαρχία του έργου δεν προσδιορίζεται</label><select name="dd">${Object.keys(GEN).map((k) => `<option>${k}</option>`).join('')}</select>
       <label class="pe-bchk"><input type="checkbox" name="deok"> Προσθήκη ΔΕΟΚ στις υπογραφές</label>
       <div class="pe-bsum"></div><div class="pe-blist"></div>
-      <div class="pe-letnote">Η επαρχία στις υπογραφές μπαίνει αυτόματα από κάθε έργο. Για την Επιστολή 2 η διεύθυνση της εταιρείας μένει κενή. Μετά τη δημιουργία, κάθε έργο σημειώνεται «τυπώθηκε & στάλθηκε» και καταγράφεται στο αρχείο.</div>
+      <div class="pe-letnote">Η επαρχία στις υπογραφές μπαίνει αυτόματα από κάθε έργο. Για την Επιστολή 2 η διεύθυνση της εταιρείας μπαίνει αυτόματα από τον Έφορο Εταιρειών (εγγεγραμμένο γραφείο)· όπου δεν βρεθεί, μένει κενή. Μετά τη δημιουργία, κάθε έργο σημειώνεται «τυπώθηκε & στάλθηκε» και καταγράφεται στο αρχείο.</div>
       <div class="pe-letact"><button type="button" class="cancel">Άκυρο</button><button type="button" class="go">Δημιουργία PDF</button></div></div>`;
     const q = (x) => ov.querySelector(x);
     q('[name=min]').value = mv; q('[name=date]').value = today();
@@ -338,7 +348,7 @@
       const sel = list.filter((r) => !off.has(String(r.id)));
       const tot = sel.reduce((a, r) => a + (r.awarded_value || 0), 0);
       q('.pe-bsum').innerHTML = list.length ? `<b>${sel.length}</b> από ${list.length} έργα επιλεγμένα · συνολική αξία <b>${eurF.format(tot)}</b>${sel.length > 300 ? ' · <span style="color:#b3261e">πάνω από 300 — μειώστε με μεγαλύτερο ποσό ή φίλτρα</span>' : ''}` : 'Κανένα έργο με αυτά τα κριτήρια.';
-      q('.pe-blist').innerHTML = list.slice(0, 500).map((r) => `<label><input type="checkbox" data-id="${r.id}" ${off.has(String(r.id)) ? '' : 'checked'}><span><b>${eurF.format(r.awarded_value)}</b> · ${String(r.title).replace(/[<]/g, '&lt;').slice(0, 110)}<small>${[eoOf(r), r.district].filter(Boolean).join(' · ').replace(/[<]/g, '&lt;')}</small></span></label>`).join('');
+      q('.pe-blist').innerHTML = list.slice(0, 500).map((r) => `<label><input type="checkbox" data-id="${r.id}" ${off.has(String(r.id)) ? '' : 'checked'}><span><b>${eurF.format(r.awarded_value)}</b> · ${String(r.title).replace(/[<]/g, '&lt;').slice(0, 110)}<small>${[eoOf(r), r.district].filter(Boolean).join(' · ').replace(/[<]/g, '&lt;')}${n === 2 ? ((eoInfo(r) || {}).addr ? ' · 📍 ' + eoInfo(r).addr.replace(/[<]/g, '&lt;') : ' · <span style="color:#b3261e">χωρίς διεύθυνση</span>') : ''}</small></span></label>`).join('');
       q('.pe-blist').querySelectorAll('input').forEach((c) => c.onchange = () => { c.checked ? off.delete(c.dataset.id) : off.add(c.dataset.id); draw(); });
       const go = q('.go'); go.disabled = !sel.length || sel.length > 300; go.textContent = 'Δημιουργία PDF (' + sel.length + ' επιστολές)';
     };
@@ -352,7 +362,7 @@
       btn.disabled = true; btn.textContent = 'Δημιουργία ' + sel.length + ' επιστολών…';
       const n = +ov.querySelector('[name=pe-bn]:checked').value, date = q('[name=date]').value.trim(), deok = q('[name=deok]').checked, dd = q('[name=dd]').value;
       try { localStorage.setItem('pe_bulkmin', String(num())); localStorage.setItem('pe_deok', deok ? '1' : '0'); } catch (e) {}
-      const items = sel.map((r) => ({r, n, d: {project: r.title, contractor: eoOf(r), authority: r.authority, address: '', district: GEN[r.district] ? r.district : dd, date, deok}}));
+      const items = sel.map((r) => ({r, n, d: {project: r.title, contractor: eoOf(r), authority: r.authority, address: n === 2 ? ((eoInfo(r) || {}).addr || '') : '', district: GEN[r.district] ? r.district : dd, date, deok}}));
       try {
         const {bytes, label} = await makeLetters(items, 'Επιστολή ' + n + ' — ' + sel.length + ' έργα');
         const name = 'Epistoles_' + n + '_' + sel.length + '_erga_' + date.replace(/\//g, '-') + '.pdf';
@@ -381,7 +391,7 @@
       <label>Έργο</label><textarea name="project"></textarea>
       <label>Ανάδοχος (εταιρεία)</label><input name="contractor">
       <label>Αναθέτουσα Αρχή</label><input name="authority">
-      <label class="addr">Διεύθυνση εταιρείας (προαιρετικά, για την Επιστολή 2)</label><input name="address" class="addr">
+      <label class="addr">Διεύθυνση εταιρείας (για την Επιστολή 2)</label><input name="address" class="addr"><div class="addr pe-eonote"></div>
       <label>Επαρχία (για τις υπογραφές)</label><select name="district">${Object.keys(GEN).map((k) => `<option>${k}</option>`).join('')}</select>
       <label>Ημερομηνία</label><input name="date">
       <label class="pe-deok" style="display:flex;gap:8px;align-items:center;font-weight:600;margin-top:12px"><input type="checkbox" name="deok" style="width:auto"> Προσθήκη ΔΕΟΚ στις υπογραφές (3 υπογραφές: ΠΕΟ – ΣΕΚ – ΔΕΟΚ)</label>
@@ -390,7 +400,10 @@
     const q = (s) => ov.querySelector(s);
     q('.sub').textContent = r.title.slice(0, 160) + (prev.length ? ' — ήδη: ' + prev.map((e) => 'Επ.' + e.n + ' ' + e.d).join(', ') : '');
     q('[name=project]').value = r.title; q('[name=contractor]').value = eo; q('[name=authority]').value = r.authority;
-    q('[name=district]').value = GEN[r.district] ? r.district : 'Λευκωσία'; q('[name=date]').value = today(); try { q('[name=deok]').checked = localStorage.getItem('pe_deok') === '1'; } catch (e) {}
+    q('[name=district]').value = GEN[r.district] ? r.district : 'Λευκωσία';
+    { const ei = eoInfo(r), nt = q('.pe-eonote'); const esc = (x) => String(x).replace(/[&<>"]/g, (c) => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c]));
+      if (ei && ei.addr) { q('[name=address]').value = ei.addr; nt.innerHTML = '✔ Εγγεγραμμένο γραφείο από τον <b>Έφορο Εταιρειών</b>' + (ei.reg ? ' (ΗΕ ' + esc(ei.reg) + ')' : '') + (eoDate() ? ' · στοιχεία ' + esc(eoDate()) : '') + (ei.rname ? '<br><span style="color:#8a6d00">Πιθανή αντιστοίχιση με «' + esc(ei.rname) + '» — ελέγξτε την.</span>' : '') + (ei.active ? '' : '<br><span style="color:#b3261e">⚠ Η εταιρεία δεν εμφανίζεται ως «Εγγεγραμμένη» στο μητρώο — ελέγξτε την.</span>') + ' · <a href="' + EOSEARCH + '" target="_blank" rel="noopener">έλεγχος</a>'; }
+      else { nt.innerHTML = 'Δεν βρέθηκε στο μητρώο του Εφόρου (π.χ. φυσικό πρόσωπο ή κοινοπραξία). <a href="' + EOSEARCH + '" target="_blank" rel="noopener">Αναζήτηση στον Έφορο Εταιρειών</a> ή γράψτε τη διεύθυνση.'; } } q('[name=date]').value = today(); try { q('[name=deok]').checked = localStorage.getItem('pe_deok') === '1'; } catch (e) {}
     ov.addEventListener('click', (e) => { if (e.target === ov) ov.remove(); });
     q('.cancel').onclick = () => ov.remove();
     q('.go').onclick = async () => {

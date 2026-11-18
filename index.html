@@ -824,6 +824,7 @@ body{background:#eef2f6}
 
 
 
+
  </div>
 </div>
 <script src="pdf/pdfmail.js"></script>
@@ -843,6 +844,12 @@ body{background:#eef2f6}
   let raw; try{raw=await crypto.subtle.decrypt({name:'AES-GCM',iv:b64(e.iv)},kek,b64(e.k));}catch(x){throw new Error('auth');}
   return new Uint8Array(raw);
  }
+ async function loadEO(rawKey){ try{
+  const key=await crypto.subtle.importKey('raw',rawKey,'AES-GCM',false,['decrypt']);
+  const buf=new Uint8Array(await (await fetchNew('eo.enc')).arrayBuffer());
+  const gz=await crypto.subtle.decrypt({name:'AES-GCM',iv:buf.slice(0,12)},key,buf.slice(12));
+  window.__EOADDR=JSON.parse(await new Response(new Blob([gz]).stream().pipeThrough(new DecompressionStream('gzip'))).text());
+ }catch(x){} }
  async function loadData(rawKey){
   const key=await crypto.subtle.importKey('raw',rawKey,'AES-GCM',false,['decrypt']);
   const buf=new Uint8Array(await (await fetchNew('data.enc')).arrayBuffer());
@@ -884,6 +891,7 @@ body{background:#eef2f6}
  function get(k){try{return localStorage.getItem(k);}catch(e){return null;}}
  async function show(rawKey,user){
   window.__ROWS__=await loadData(rawKey);
+  loadEO(rawKey);
   curUser=user||''; $('gate').hidden=true; $('app').hidden=false; $('who').textContent=user||'';
   window.__dashAll();
  }
