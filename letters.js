@@ -317,6 +317,9 @@
     return {cls: s.state, html: '<span class="pe-letst">' + st + '</span>' + btn, n: s.lastN, answered: s.answered};
   }
 
+  // καθαρό όνομα αρχείου (κρατά ελληνικά, βγάζει χαρακτήρες που δεν επιτρέπονται)
+  const fpart = (x, max) => { let t = String(x || '').replace(/[\\/:*?"<>|\u0000-\u001f]+/g, ' ').replace(/\s+/g, ' ').trim(); if (t.length > max) t = t.slice(0, max).replace(/\s+\S*$/, '').trim(); return t; };
+  const fname = (n, auth, eo, date) => ['Επιστολή ' + n, fpart(auth, 60), fpart(eo, 50), String(date || '').replace(/\//g, '-')].filter(Boolean).join(' - ') + '.pdf';
   async function savePdf(bytes, name, title) {
     const file = new File([bytes], name, {type: 'application/pdf'});
     let dl = null;
@@ -391,7 +394,8 @@
       const items = sel.map((r) => ({r, n, d: {project: r.title, contractor: eoOf(r), authority: r.authority, address: n === 2 ? ((eoInfo(r) || {}).addr || '') : '', district: GEN[r.district] ? r.district : dd, date, deok}}));
       try {
         const {bytes, label} = await makeLetters(items, 'Επιστολή ' + n + ' — ' + sel.length + ' έργα');
-        const name = 'Epistoles_' + n + '_' + sel.length + '_erga_' + date.replace(/\//g, '-') + '.pdf';
+        const auths = Array.from(new Set(sel.map((r) => r.authority))), eos = Array.from(new Set(sel.map((r) => eoOf(r))));
+        const name = fname(n, auths.length === 1 ? auths[0] : auths.length + ' Αρχές', eos.length === 1 ? eos[0] : eos.length + ' ανάδοχοι', date).replace('.pdf', ' (' + sel.length + ' έργα).pdf');
         if (!(await savePdf(bytes, name, 'Επιστολή ' + n + ' — ' + sel.length + ' έργα'))) { btn.disabled = false; draw(); return; }
         const h = getH(), u = (window.peLogCfg && window.peLogCfg.user) || '';
         items.forEach((it) => { (h[it.r.id] = h[it.r.id] || []).push({n, d: date, u, t: Date.now()}); }); setH(h);
@@ -439,7 +443,7 @@
       try { localStorage.setItem('pe_deok', d.deok ? '1' : '0'); } catch (e) {}
       try {
         const {bytes, label} = await makeLetter(n, d);
-        const name = 'Epistoli_' + n + '_' + r.id + '_' + d.date.replace(/\//g, '-') + '.pdf';
+        const name = fname(n, d.authority, d.contractor, d.date);
         if (!(await savePdf(bytes, name, 'Επιστολή ' + n))) { btn.disabled = false; btn.textContent = 'Δημιουργία PDF'; return; }
         const h = getH(); (h[r.id] = h[r.id] || []).push({n, d: d.date, u: (window.peLogCfg && window.peLogCfg.user) || '', t: Date.now()}); setH(h);
         if (window.peLog) window.peLog('Επιστολή ' + n, 'Προς: ' + label + ' · Έργο: ' + d.project.slice(0, 160) + ' · Ανάδοχος: ' + d.contractor + ' · Αρχή: ' + d.authority + ' · Επαρχία: ' + d.district + ' · Υπογραφές: ' + (d.deok ? 'ΠΕΟ, ΣΕΚ, ΔΕΟΚ' : 'ΠΕΟ, ΣΕΚ') + ' · Ημ/νία επιστολής: ' + d.date + ' · CFT ' + r.id);
