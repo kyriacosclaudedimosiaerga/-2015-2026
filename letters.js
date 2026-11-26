@@ -282,7 +282,14 @@
   const LSJ = (k) => { try { return JSON.parse(localStorage.getItem(k) || '{}') || {}; } catch (e) { return {}; } };
   const pDm = (x) => { const m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})/.exec(x || ''); return m ? new Date(+m[3], +m[2] - 1, +m[1]).getTime() : 0; };
   function isDel(id, e) { const D = LSJ('pe_letdel'); if (D[id + '|' + e.n + '|' + e.d]) return true; const A = LSJ('pe_letdelall'); return !!(A[id] && (e.t ? e.t <= A[id] : pDm(e.d) <= A[id])); }
+  // διαγραφή και από το κοινό αρχείο (Google Sheet) ώστε να μη φαίνεται σε κανέναν
+  function remoteDel(items) {
+    const c = window.peLogCfg; if (!c || !c.url || !items.length) return;
+    try { fetch(c.url, {method: 'POST', mode: 'no-cors', keepalive: true, headers: {'Content-Type': 'text/plain;charset=utf-8'}, body: JSON.stringify({k: c.k, a: 'del', u: c.user || '', items})}).catch(() => {}); } catch (e) {}
+    setTimeout(loadRemote, 4000);
+  }
   function delLetters(id, list, quiet) {
+    if (!quiet) remoteDel(list.map((e) => ({cft: String(id), n: e.n, date: e.d})));
     const D = LSJ('pe_letdel'); list.forEach((e) => { D[id + '|' + e.n + '|' + e.d] = 1; });
     try { localStorage.setItem('pe_letdel', JSON.stringify(D)); } catch (e) {}
     const h = getH(); if (h[id]) { h[id] = h[id].filter((x) => !list.some((e) => e.n === x.n && e.d === x.d)); if (!h[id].length) delete h[id]; setH(h); }
@@ -595,7 +602,7 @@
       } else if (hs) hs.remove();
     });
   }
-  window.peLetters = {hist, status, setAns, openDel, delLetters, refresh: () => { decorate(); try { document.dispatchEvent(new Event('pe-letters')); } catch (e) {} }, rowById, allRows, openForm, ids: () => Array.from(new Set(Object.keys(REMOTE).concat(Object.keys(getH())))), desc: DESC};
+  window.peLetters = {hist, status, setAns, openDel, delLetters, remoteDel, refresh: () => { decorate(); try { document.dispatchEvent(new Event('pe-letters')); } catch (e) {} }, rowById, allRows, openForm, ids: () => Array.from(new Set(Object.keys(REMOTE).concat(Object.keys(getH())))), desc: DESC};
   setTimeout(loadRemote, 1500); setInterval(loadRemote, 60000);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) loadRemote(); });
   let pend = false;

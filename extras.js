@@ -221,6 +221,7 @@
         const by = {}; [...SEL].forEach((k) => { const [id, n, d] = k.split('|'); (by[id] = by[id] || []).push({n: +n, d}); });
         const cnt = SEL.size, nproj = Object.keys(by).length;
         Object.keys(by).forEach((id) => L().delLetters(id, by[id], true));
+        L().remoteDel(Object.keys(by).flatMap((id) => by[id].map((e) => ({cft: id, n: e.n, date: e.d}))));
         log('Μαζική διαγραφή επιστολών', cnt + ' επιστολές σε ' + nproj + ' έργα · ' + Object.keys(by).map((id) => 'CFT ' + id + ' (' + by[id].map((e) => 'Επ.' + e.n + ' ' + e.d).join(', ') + ')').join(' · ').slice(0, 900));
         SEL.clear(); confirmDel = false; L().refresh(); draw(); refresh();
       };
