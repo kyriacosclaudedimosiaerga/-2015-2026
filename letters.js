@@ -221,8 +221,10 @@
   const today = () => { const d = new Date(); return String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0') + '/' + d.getFullYear(); };
   // μηδενισμός δοκιμαστικών σημάνσεων (17/11/2026), μία φορά ανά συσκευή
   try { if (localStorage.getItem('pe_letters_reset') !== '1') { localStorage.removeItem('pe_letters'); localStorage.setItem('pe_letters_reset', '1'); } } catch (e) {}
-  const getH = () => { try { return JSON.parse(localStorage.getItem('pe_letters') || '{}'); } catch (e) { return {}; } };
-  const setH = (h) => { try { localStorage.setItem('pe_letters', JSON.stringify(h)); } catch (e) {} };
+  // ιστορικό στη συσκευή· αν ο browser δεν κρατά αποθήκευση, μένει στη μνήμη της σελίδας
+  let MEMH = null;
+  const getH = () => { try { const v = localStorage.getItem('pe_letters'); if (v != null) return JSON.parse(v) || {}; } catch (e) {} return MEMH ? JSON.parse(JSON.stringify(MEMH)) : {}; };
+  const setH = (h) => { MEMH = h; try { localStorage.setItem('pe_letters', JSON.stringify(h)); } catch (e) {} };
   const css = document.createElement('style');
   css.textContent = `.pe-acts{display:flex;flex-direction:column;align-items:flex-start;gap:5px;margin:5px 0 3px}.pe-actrow{display:flex;flex-wrap:wrap;gap:6px;align-items:center}.pe-acts .pe-map{margin:0!important}
 .pe-letbtn{display:inline-block;margin:0;font:inherit;font-size:12px;padding:3px 9px;border-radius:12px;border:1px solid #1f4e79;background:#fff;color:#1f4e79;cursor:pointer}
@@ -271,7 +273,8 @@
     try {
       const r = await fetch(c.url + '?a=letters&k=' + encodeURIComponent(c.k), {cache: 'no-store'});
       const j = await r.json(); if (!Array.isArray(j)) return;
-      const m = {}; j.forEach((e) => { const id = String(e.cft || ''); if (!id) return; (m[id] = m[id] || []).push({n: +e.n, d: String(e.date || ''), u: e.u || ''}); });
+      const nd = (x) => { x = String(x || '').trim(); const a = /^(\d{1,2})\/(\d{1,2})\/(\d{4})/.exec(x); if (a) return a[1].padStart(2, '0') + '/' + a[2].padStart(2, '0') + '/' + a[3]; const t = new Date(x); return isNaN(t) ? x : String(t.getDate()).padStart(2, '0') + '/' + String(t.getMonth() + 1).padStart(2, '0') + '/' + t.getFullYear(); };
+      const m = {}; j.forEach((e) => { const id = String(e.cft || '').trim(); if (!id || !+e.n) return; (m[id] = m[id] || []).push({n: +e.n, d: nd(e.date), u: e.u || ''}); });
       REMOTE = m; decorate(); try { document.dispatchEvent(new Event('pe-letters')); } catch (e) {}
     } catch (e) {}
   }
@@ -593,7 +596,8 @@
     });
   }
   window.peLetters = {hist, status, setAns, openDel, rowById, allRows, openForm, ids: () => Array.from(new Set(Object.keys(REMOTE).concat(Object.keys(getH())))), desc: DESC};
-  setTimeout(loadRemote, 1500);
+  setTimeout(loadRemote, 1500); setInterval(loadRemote, 60000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) loadRemote(); });
   let pend = false;
   new MutationObserver(() => { if (pend) return; pend = true; requestAnimationFrame(() => { pend = false; decorate(); }); }).observe(document.documentElement, {childList: true, subtree: true});
 })();
