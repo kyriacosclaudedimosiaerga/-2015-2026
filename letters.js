@@ -32,9 +32,11 @@
   const width = (font, s, size) => glyphs(font, s).reduce((a, g) => a + (font.map.w[g] || 500), 0) * size / 1000;
   const hex = (gs) => gs.map((g) => g.toString(16).padStart(4, '0')).join('');
   function Page() { this.ops = []; }
-  Page.prototype.text = function (font, key, s, size, x, y) {
-    this.ops.push(`BT 0 0 0 rg /${key} ${size} Tf ${x.toFixed(2)} ${(H - y).toFixed(2)} Td <${hex(glyphs(font, s))}> Tj ET`);
+  const rgb = (c) => { c = String(c || '#000000').replace('#', ''); return [0, 2, 4].map((i) => (parseInt(c.substr(i, 2), 16) / 255).toFixed(3)).join(' '); };
+  Page.prototype.text = function (font, key, s, size, x, y, col) {
+    this.ops.push(`BT ${col ? rgb(col) : '0 0 0'} rg /${key} ${size} Tf ${x.toFixed(2)} ${(H - y).toFixed(2)} Td <${hex(glyphs(font, s))}> Tj ET`);
   };
+  Page.prototype.rect = function (x, y, w, h, fill, stroke) { this.ops.push(`q ${fill ? rgb(fill) + ' rg' : ''} ${stroke ? rgb(stroke) + ' RG 0.6 w' : ''} ${x.toFixed(2)} ${(H - y - h).toFixed(2)} ${w.toFixed(2)} ${h.toFixed(2)} re ${fill && stroke ? 'B' : fill ? 'f' : 'S'} Q`); };
   Page.prototype.img = function (key, x, y, w, h) { this.ops.push(`q ${w.toFixed(2)} 0 0 ${h.toFixed(2)} ${x.toFixed(2)} ${(H - y - h).toFixed(2)} cm /${key} Do Q`); (this.im = this.im || new Set()).add(key); };
   Page.prototype.line = function (x1, y1, x2, y2) { this.ops.push(`0 0 0 RG 0.6 w ${x1} ${H - y1} m ${x2} ${H - y2} l S`); };
 
@@ -214,6 +216,111 @@
     return L.label;
   }
   window.peMakeLetter = makeLetter;
+  // Καρτέλα αναδόχου σε PDF: σύνολα, πίνακες και κάθε έργο σε δική του κάρτα
+  window.peContractorPdf = async (D) => {
+    const F = await loadFonts(); F.r.used = new Map(); F.b.used = new Map();
+    const NAVY = '#1f4e79', DARK = '#0f2d4a', GREY = '#5b6b7c', LIGHT = '#eef3f8', LINE = '#c9d6e3', RED = '#b5122b', LINK = '#2563a6';
+    const M = 40, CWd = W - 2 * M, BOT = H - 46;
+    const clean = (s) => String(s == null ? '' : s).replace(/[\u{1F000}-\u{1FFFF}☀-➿️]/gu, '').replace(/\s+/g, ' ').trim();
+    const wrap = (font, s, size, maxW) => {
+      const out = []; let line = '';
+      for (let w of clean(s).split(' ')) {
+        while (width(font, w, size) > maxW) { let k = w.length; while (k > 1 && width(font, w.slice(0, k), size) > maxW) k--; if (line) { out.push(line); line = ''; } out.push(w.slice(0, k)); w = w.slice(k); }
+        const tryL = line ? line + ' ' + w : w;
+        if (width(font, tryL, size) > maxW && line) { out.push(line); line = w; } else line = tryL;
+      }
+      if (line) out.push(line);
+      return out;
+    };
+    const pages = []; let p, y;
+    const LG = window.__PE_LOGOS__ || {};
+    const newPage = (first) => {
+      p = new Page(); pages.push(p);
+      if (first && LG.peo && LG.sek) {
+        const lh = 50; ['peo', 'sek'].forEach((k, i) => { const w = Math.min(lh * LG[k].w / LG[k].h, 86), h = w * LG[k].h / LG[k].w; p.img(k, i ? W - M - w : M, 24 + (lh - h) / 2, w, h); });
+        const t1 = 'ΚΑΡΤΕΛΑ ΑΝΑΔΟΧΟΥ', s1 = 15; p.text(F.b, 'F2', t1, s1, (W - width(F.b, t1, s1)) / 2, 50, DARK);
+        const t2 = 'Δημόσια έργα από eProcurement · ' + D.date; p.text(F.r, 'F1', t2, 9, (W - width(F.r, t2, 9)) / 2, 64, GREY);
+        y = 92;
+      } else {
+        p.text(F.b, 'F2', clean(D.name).slice(0, 70), 9, M, 30, NAVY);
+        const t = 'Καρτέλα αναδόχου · ' + D.date; p.text(F.r, 'F1', t, 8.5, W - M - width(F.r, t, 8.5), 30, GREY);
+        p.rect(M, 36, CWd, 0.8, LINE); y = 54;
+      }
+    };
+    const need = (h) => { if (y + h > BOT) newPage(false); };
+    const section = (title) => { need(40); p.rect(M, y, 4, 15, RED); p.text(F.b, 'F2', title, 12, M + 10, y + 12, DARK); y += 24; };
+    newPage(true);
+    // όνομα αναδόχου
+    const nl = wrap(F.b, D.name, 15, CWd - 24);
+    const info = [D.rname && D.rname !== D.name ? 'Επωνυμία στον Έφορο Εταιρειών: ' + D.rname : '', D.reg ? 'Αρ. εγγραφής: ' + D.reg + (D.active === false ? ' (μη ενεργή)' : '') : '', D.addr ? 'Διεύθυνση (Έφορος Εταιρειών): ' + D.addr : ''].filter(Boolean);
+    const il = []; info.forEach((s) => wrap(F.r, s, 9.5, CWd - 24).forEach((x) => il.push(x)));
+    const bh = 14 + nl.length * 19 + (il.length ? 4 + il.length * 13 : 0) + 6;
+    p.rect(M, y, CWd, bh, NAVY);
+    let yy = y + 23; nl.forEach((s) => { p.text(F.b, 'F2', s, 15, M + 12, yy, '#ffffff'); yy += 19; });
+    yy += 2; il.forEach((s) => { p.text(F.r, 'F1', s, 9.5, M + 12, yy, '#dce7f2'); yy += 13; });
+    y += bh + 12;
+    // σύνολα
+    const K = [['Έργα', D.n], ['Συνολική αξία', D.tot], ['Μέση αξία', D.avg], ['Περίοδος', D.period], ['Επιστολές', D.nlets]];
+    const kw = (CWd - 4 * 8) / 5;
+    K.forEach((k, i) => { const x = M + i * (kw + 8); p.rect(x, y, kw, 44, LIGHT); p.rect(x, y, kw, 2.5, NAVY); p.text(F.r, 'F1', k[0], 8, x + 8, y + 15, GREY); let s = 12.5; while (s > 8 && width(F.b, String(k[1]), s) > kw - 14) s -= 0.5; p.text(F.b, 'F2', String(k[1]), s, x + 8, y + 34, DARK); });
+    y += 68;
+    // μικροί πίνακες με μπάρες
+    const table = (rows, x, w) => {
+      const mx = Math.max(1, ...rows.map((r) => r.v)); let yy = y;
+      rows.forEach((r, i) => {
+        if (i % 2 === 0) p.rect(x, yy - 10, w, 15, '#f6f8fb');
+        const lab = wrap(F.r, r.k, 8.5, w * 0.42)[0] || '';
+        p.text(F.r, 'F1', lab, 8.5, x + 4, yy, DARK);
+        const bx = x + w * 0.44, bw = Math.max(1.5, (w * 0.24) * r.v / mx); p.rect(bx, yy - 7, bw, 6, NAVY);
+        const vt = r.vs + ' (' + r.n + ')'; p.text(F.r, 'F1', vt, 8.5, x + w - 4 - width(F.r, vt, 8.5), yy, DARK);
+        yy += 15;
+      });
+      return yy;
+    };
+    const hcol = Math.max(D.years.length, D.dists.length) * 15 + 30;
+    need(hcol);
+    const cw2 = (CWd - 16) / 2;
+    p.text(F.b, 'F2', 'Ανά έτος', 11, M, y, DARK); p.text(F.b, 'F2', 'Ανά επαρχία', 11, M + cw2 + 16, y, DARK); y += 16;
+    const y1 = table(D.years, M, cw2), y2 = table(D.dists, M + cw2 + 16, cw2); y = Math.max(y1, y2) + 10;
+    need(D.auths.length * 15 + 30);
+    p.text(F.b, 'F2', 'Κυριότερες Αναθέτουσες Αρχές', 11, M, y, DARK); y += 16; y = table(D.auths, M, CWd) + 10;
+    if (D.lets.length) {
+      section('Επιστολές ΠΕΟ–ΣΕΚ που στάλθηκαν (' + D.lets.length + ')');
+      D.lets.forEach((l) => { const ls = wrap(F.r, l.title, 9, CWd - 130); need(ls.length * 12 + 4); p.text(F.b, 'F2', l.d, 9, M, y, DARK); p.text(F.r, 'F1', 'Επιστολή ' + l.n, 9, M + 62, y, RED); ls.forEach((s) => { p.text(F.r, 'F1', s, 9, M + 130, y, DARK); y += 12; }); y += 3; });
+      y += 6;
+    }
+    // έργα: μία κάρτα ανά έργο
+    section('Έργα (' + D.works.length + ')');
+    D.works.forEach((w, i) => {
+      const X = M + 34, IW = CWd - 34 - 12;
+      const vs = w.value, vw = width(F.b, vs, 11);
+      const tl = wrap(F.b, w.title, 10, IW - vw - 14);
+      const meta = [w.auth, w.district, w.jv ? 'κοινοπραξία' : ''].filter(Boolean).join(' · ');
+      const ml = wrap(F.r, meta, 8.8, IW);
+      const ll = w.link ? wrap(F.r, w.link, 7.5, IW) : [];
+      const h = 10 + 11 + tl.length * 13 + 2 + ml.length * 11.5 + ll.length * 10 + 8;
+      need(h + 8);
+      p.rect(M, y, CWd, h, '#ffffff', LINE);
+      p.rect(M, y, 26, h, i % 2 ? NAVY : DARK);
+      const num = String(i + 1); p.text(F.b, 'F2', num, 10, M + 13 - width(F.b, num, 10) / 2, y + 17, '#ffffff');
+      let yy = y + 17;
+      p.text(F.b, 'F2', w.date, 9, X, yy, GREY);
+      p.text(F.b, 'F2', vs, 11, M + CWd - 12 - vw, yy + 1, NAVY);
+      yy += 14;
+      tl.forEach((s) => { p.text(F.b, 'F2', s, 10, X, yy, DARK); yy += 13; });
+      yy += 2;
+      ml.forEach((s) => { p.text(F.r, 'F1', s, 8.8, X, yy, GREY); yy += 11.5; });
+      ll.forEach((s) => { p.text(F.r, 'F1', s, 7.5, X, yy, LINK); yy += 10; });
+      y += h + 7;
+    });
+    // υποσέλιδο με αριθμό σελίδας
+    pages.forEach((pg, i) => {
+      pg.rect(M, H - 34, CWd, 0.8, LINE);
+      pg.text(F.r, 'F1', 'Δημόσια Έργα (ΠΕΟ) · tinyurl.com/Dimosiaerga2015-today', 8, M, H - 22, GREY);
+      const s = 'Σελίδα ' + (i + 1) + ' από ' + pages.length; pg.text(F.r, 'F1', s, 8, W - M - width(F.r, s, 8), H - 22, GREY);
+    });
+    return writePdf(pages, F, 'Καρτέλα αναδόχου - ' + clean(D.name));
+  };
   // Γενικό PDF κειμένου (π.χ. καρτέλα αναδόχου για Viber): γραμμές με *έντονα*, εσοχή όταν ξεκινούν με κενά
   window.peTextPdf = async (title, lines) => {
     const F = await loadFonts(); F.r.used = new Map(); F.b.used = new Map();

@@ -186,10 +186,24 @@
     const go = (u) => { const a = document.createElement('a'); a.href = u; a.target = '_blank'; a.rel = 'noopener'; document.body.appendChild(a); a.click(); a.remove(); };
     body.querySelector('.pe-sh.wa').onclick = () => { const q = encodeURIComponent(shTxt(60000)); go((mob || q.length > 30000 ? 'whatsapp://send?text=' : 'https://wa.me/?text=') + q); log('Κοινοποίηση αναδόχου', 'WhatsApp · ' + name); };
     const fn = 'Ανάδοχος - ' + name.replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80) + '.pdf';
-    const mkPdf = async () => { const b = await window.peTextPdf('Καρτέλα αναδόχου - ' + name, ['*ΚΑΡΤΕΛΑ ΑΝΑΔΟΧΟΥ*', 'Δημόσια έργα από eProcurement · ' + new Date().toLocaleDateString('el-GR'), ''].concat(shTxt(1e7).split('\n'))); return new File([b], fn, {type: 'application/pdf'}); };
+    const mkPdf = async () => {
+      const A = (window.__EOADDR && window.__EOADDR.a) || {}, ea = A[name] || [];
+      const arr = (m, sort) => Array.from(m, ([k, o]) => ({k, v: o.v, n: int.format(o.n), vs: eur0.format(o.v)})).sort(sort || ((a, b) => b.v - a.v));
+      const D = {
+        name, reg: ea[0] || '', active: ea.length ? !!ea[1] : null, addr: ea[2] || '', rname: ea[3] || '', date: new Date().toLocaleDateString('el-GR'),
+        n: int.format(rs.length), tot: eur0.format(tot), avg: rs.length ? eur0.format(tot / rs.length) : '—', nlets: int.format(lets.length),
+        period: yrs.length ? yrs[0] + (yrs[0] !== yrs[yrs.length - 1] ? '–' + yrs[yrs.length - 1] : '') : '—',
+        years: arr(grp((r) => r.award_month.slice(0, 4)), (a, b) => a.k.localeCompare(b.k)),
+        dists: arr(grp((r) => r.district || 'Δεν προσδιορίζεται')),
+        auths: arr(grp((r) => r.authority)).slice(0, 10),
+        lets: lets.slice().sort((a, b) => (parseD(b.d) || 0) - (parseD(a.d) || 0)).map((x) => ({d: x.d, n: x.n, title: x.r.title || ''})),
+        works: rs.slice().sort((a, b) => String(b.awarded).localeCompare(String(a.awarded))).map((r) => ({date: dl(r.awarded), title: r.title || '', auth: r.authority || '', value: eur0.format(share(r)), district: r.district && r.district !== 'Δεν προσδιορίζεται' ? r.district : '', jv: r.contractor_count > 1, link: r.link || ''})),
+      };
+      const b = await window.peContractorPdf(D); return new File([b], fn, {type: 'application/pdf'});
+    };
     const dlFile = (f) => { const a = document.createElement('a'); a.href = URL.createObjectURL(f); a.download = f.name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 60000); };
     const busy = async (btn, fnc) => { const t0 = btn.textContent; btn.disabled = true; btn.textContent = '…'; try { await fnc(); } catch (e) { if (!e || e.name !== 'AbortError') alert('Δεν έγινε: ' + ((e && e.message) || e)); } finally { btn.disabled = false; btn.textContent = t0; } };
-    let pre = null; try { if (mob && window.peTextPdf && shTxt(1e7).length > 1500) { pre = mkPdf(); pre.catch(() => { pre = null; }); } } catch (e) {}
+    let pre = null; try { if (mob && window.peContractorPdf && shTxt(1e7).length > 1500) { pre = mkPdf(); pre.catch(() => { pre = null; }); } } catch (e) {}
     body.querySelector('.pe-sh.pdf').onclick = (ev) => busy(ev.currentTarget, async () => { dlFile(await mkPdf()); log('Κοινοποίηση αναδόχου', 'PDF · ' + name); });
     body.querySelector('.pe-sh.vb').onclick = (ev) => busy(ev.currentTarget, async () => {
       // Το Viber κόβει τα μεγάλα μηνύματα: όλα τα στοιχεία πάνε ως PDF
