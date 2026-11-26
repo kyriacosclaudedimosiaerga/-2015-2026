@@ -52,6 +52,15 @@
 .pe-xall{display:flex;gap:6px;align-items:center;font-size:13px;margin:0}.pe-xall input,.pe-xlk input{width:auto;margin:0}
 .pe-xlk{display:flex;gap:6px;align-items:center;font-weight:400;font-size:12.5px;margin:2px 0;cursor:pointer}
 .pe-xsmall[disabled]{opacity:.45;cursor:default}
+.pe-xg{border:1px solid #d5dee8;border-radius:10px;margin:8px 0;background:#fff}
+.pe-xg>summary{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:9px 12px;cursor:pointer;background:#f3f6fa;border-radius:10px;list-style:none}
+.pe-xg[open]>summary{border-bottom:1px solid #d5dee8;border-radius:10px 10px 0 0}
+.pe-xg>summary::before{content:'▸';color:#1f4e79;font-size:12px}.pe-xg[open]>summary::before{content:'▾'}
+.pe-xg>summary input{width:auto;margin:0}.pe-xg>summary b{color:#143a5c}
+.pe-xgc{font-size:12px;color:#5b6b7b}.pe-xgd{background:#b3261e;color:#fff;border-radius:9px;padding:0 7px;font-size:12px;font-weight:700}
+.pe-xg table{margin:0}.pe-xg .gcard{margin-left:auto}
+ @media (max-width:620px){.pe-xbox table:not(.keep) tr:first-child{display:none}.pe-xbox table:not(.keep) tr{display:block;border-bottom:1px solid #e3e9ef;padding:6px 0}.pe-xbox table:not(.keep) td{display:block;border:0;padding:3px 8px}.pe-xbox td br+button,.pe-xbox td .pe-xsmall{margin-top:4px}.pe-xbox .pe-xsmall{white-space:nowrap}}
+.pe-xq{font:inherit;font-size:13px;padding:5px 9px;border:1px solid #b9c6d3;border-radius:8px;min-width:180px}
 .pe-xbox .pe-xlk,.pe-xbox .pe-xall{font-weight:400!important;display:flex!important;margin:2px 0!important;white-space:nowrap}
 .pe-xsmall{font:inherit;font-size:12px;padding:3px 8px;border-radius:8px;border:1px solid #1f4e79;background:#fff;color:#1f4e79;cursor:pointer;margin:2px 4px 2px 0}
 @media (max-width:620px){.pe-xbox .hn{display:none}}
@@ -166,25 +175,42 @@
     if (b.dataset.h !== html) { b.dataset.h = html; b.innerHTML = html; }
   }
   function letterList() {
-    const ov = modal('✉️ Επιστολές που στάλθηκαν', 'Ανά έργο, με την τελευταία επιστολή. Όταν περάσουν 30 μέρες από την 1η επιστολή χωρίς σημείωση απάντησης, το έργο φαίνεται με ⏰ και προτείνεται η επόμενη επιστολή.');
+    const ov = modal('✉️ Επιστολές που στάλθηκαν', 'Αρχειοθετημένες ανά ανάδοχο (ή λίστα ανά έργο). Όταν περάσουν 30 μέρες από την 1η επιστολή χωρίς σημείωση απάντησης, το έργο φαίνεται με ⏰ και προτείνεται η επόμενη επιστολή.');
     const body = ov.querySelector('.body');
-    const SEL = new Set(); let confirmDel = false;
+    const SEL = new Set(); let confirmDel = false; const OPEN = new Set(); let QQ = '';
+    let view = 'eo'; try { view = localStorage.getItem('pe_letview') || 'eo'; } catch (e) {}
     const draw = () => {
       const st = letterState();
       const keys = new Set(); st.forEach((s) => s.h.forEach((e) => keys.add(s.id + '|' + e.n + '|' + e.d))); [...SEL].forEach((k) => { if (!keys.has(k)) SEL.delete(k); });
-      const sel = body.querySelector('select') ? body.querySelector('select').value : 'all';
+      const sel = body.querySelector('select:not(.view)') ? body.querySelector('select:not(.view)').value : 'all';
       const list = st.filter((s) => sel === 'all' || (sel === 'due' && s.due) || (sel === 'open' && !s.answered) || (sel === 'ans' && s.answered));
-      body.innerHTML = `<div class="pe-xtools"><select><option value="all">Όλα (${st.length})</option><option value="due">⏰ Πάνω από 30 μέρες χωρίς απάντηση (${st.filter((s) => s.due).length})</option><option value="open">Χωρίς απάντηση (${st.filter((s) => !s.answered).length})</option><option value="ans">Με απάντηση (${st.filter((s) => s.answered).length})</option></select>
-        <label class="pe-xall"><input type="checkbox" class="all"> Επιλογή όλων</label>
-        <button type="button" class="pe-xsmall mdel" style="border-color:#b3261e;color:${confirmDel ? '#fff' : '#b3261e'};background:${confirmDel ? '#b3261e' : '#fff'}" ${SEL.size ? '' : 'disabled'}>${confirmDel ? '⚠ Επιβεβαίωση: διαγραφή ' + SEL.size + ' επιστολών' : '🗑 Διαγραφή επιλεγμένων (' + SEL.size + ')'}</button>${confirmDel ? '<button type="button" class="pe-xsmall mcancel">Άκυρο</button>' : ''}</div>
-        ${list.length ? `<table><tr><th>Έργο</th><th>Επιστολές</th><th>Κατάσταση</th></tr>${list.map((s) => {
+      const fold = (x) => String(x || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+      const rowHTML = (s) => {
           const r = s.r || {};
           const status = s.answered ? `<span class="pe-st-ok">✔ Απάντηση ${esc(s.ans.d)}</span>` : s.due ? `<span class="pe-st-due">⏰ ${s.days} μέρες από την 1η επιστολή χωρίς απάντηση</span>` : `<span class="pe-st-wait">Αναμονή · ${s.days == null ? '—' : s.days + ' μέρες'}</span>`;
           const acts = (s.answered ? `<button type="button" class="pe-xsmall unans" data-id="${esc(s.id)}">Αναίρεση απάντησης</button>` : `<button type="button" class="pe-xsmall ans" data-id="${esc(s.id)}">Ήρθε απάντηση</button>`) + (s.last.n < 4 && s.r ? `<button type="button" class="pe-xsmall next" data-id="${esc(s.id)}">Επιστολή ${s.last.n + 1}</button>` : '') + `<button type="button" class="pe-xsmall del" data-id="${esc(s.id)}" style="border-color:#b3261e;color:#b3261e">🗑 Διαγραφή</button>`;
           return `<tr><td>${r.link ? `<a href="${esc(r.link)}" target="_blank" rel="noopener">${esc((r.title || '').slice(0, 140))}</a>` : 'CFT ' + esc(s.id)}<br><small>${esc([r.contractors, r.district].filter(Boolean).join(' · '))}</small></td><td>${s.h.map((e) => { const k = s.id + '|' + e.n + '|' + e.d; return `<label class="pe-xlk"><input type="checkbox" class="one" data-k="${esc(k)}" ${SEL.has(k) ? 'checked' : ''}> Επ. ${e.n} — ${esc(e.d)}${e.u ? ' (' + esc(e.u.split('@')[0]) + ')' : ''}</label>`; }).join('')}</td><td>${status}<br>${acts}</td></tr>`;
-        }).join('')}</table>` : '<p class="pe-letnote">Δεν υπάρχουν επιστολές σε αυτή την κατηγορία.</p>'}`;
-      const s0 = body.querySelector('select'); s0.value = sel; s0.onchange = () => { confirmDel = false; draw(); };
-      const vis = []; list.forEach((s) => s.h.forEach((e) => vis.push(s.id + '|' + e.n + '|' + e.d)));
+        };
+      const eoName = (s) => { const r = s.r; if (!r) return '—'; let n = []; try { n = JSON.parse(r.contractor_split).map((x) => x[0]); } catch (e) { n = [r.contractors]; } n = n.filter(Boolean); return n.length ? n.join(' + ') : '—'; };
+      const gm = new Map(); list.forEach((s) => { const k = eoName(s); (gm.get(k) || gm.set(k, []).get(k)).push(s); });
+      const groups = [...gm].map(([name, items]) => ({name, items})).filter((g) => !QQ || fold(g.name).includes(fold(QQ))).sort((x, y) => (y.items.filter((s) => s.due).length - x.items.filter((s) => s.due).length) || x.name.localeCompare(y.name, 'el'));
+      body.innerHTML = `<div class="pe-xtools"><select><option value="all">Όλα (${st.length})</option><option value="due">⏰ Πάνω από 30 μέρες χωρίς απάντηση (${st.filter((s) => s.due).length})</option><option value="open">Χωρίς απάντηση (${st.filter((s) => !s.answered).length})</option><option value="ans">Με απάντηση (${st.filter((s) => s.answered).length})</option></select>
+        <select class="view"><option value="eo">Αρχειοθέτηση ανά ανάδοχο</option><option value="list">Λίστα ανά έργο</option></select>
+        ${view === 'eo' ? `<input class="pe-xq" placeholder="Αναζήτηση αναδόχου…" value="${esc(QQ)}">` : ''}
+        <label class="pe-xall"><input type="checkbox" class="all"> Επιλογή όλων</label>
+        <button type="button" class="pe-xsmall mdel" style="border-color:#b3261e;color:${confirmDel ? '#fff' : '#b3261e'};background:${confirmDel ? '#b3261e' : '#fff'}" ${SEL.size ? '' : 'disabled'}>${confirmDel ? '⚠ Επιβεβαίωση: διαγραφή ' + SEL.size + ' επιστολών' : '🗑 Διαγραφή επιλεγμένων (' + SEL.size + ')'}</button>${confirmDel ? '<button type="button" class="pe-xsmall mcancel">Άκυρο</button>' : ''}</div>
+        ${list.length ? (view === 'eo' ? groups.map((g) => {
+          const gk = []; g.items.forEach((s) => s.h.forEach((e) => gk.push(s.id + '|' + e.n + '|' + e.d)));
+          const nl = gk.length, due = g.items.filter((s) => s.due).length, isOpen = OPEN.has(g.name) || (OPEN.size === 0 && groups.length <= 6);
+          return `<details class="pe-xg" data-g="${esc(g.name)}" ${isOpen ? 'open' : ''}><summary><input type="checkbox" class="gsel" data-g="${esc(g.name)}" ${gk.length && gk.every((k) => SEL.has(k)) ? 'checked' : ''}><b>${esc(g.name)}</b><span class="pe-xgc">${g.items.length} έργ${g.items.length === 1 ? 'ο' : 'α'} · ${nl} επιστολ${nl === 1 ? 'ή' : 'ές'}</span>${due ? `<span class="pe-xgd">⏰ ${due}</span>` : ''}${g.name !== '—' ? `<button type="button" class="pe-xsmall gcard" data-g="${esc(g.name)}">📇 Καρτέλα</button>` : ''}</summary><table><tr><th>Έργο</th><th>Επιστολές</th><th>Κατάσταση</th></tr>${g.items.map(rowHTML).join('')}</table></details>`;
+        }).join('') : `<table><tr><th>Έργο</th><th>Επιστολές</th><th>Κατάσταση</th></tr>${list.map(rowHTML).join('')}</table>`) : '<p class="pe-letnote">Δεν υπάρχουν επιστολές σε αυτή την κατηγορία.</p>'}`;
+      const s0 = body.querySelector('select:not(.view)'); s0.value = sel; s0.onchange = () => { confirmDel = false; draw(); };
+      const vis = []; (view === 'eo' ? groups.flatMap((g) => g.items) : list).forEach((s) => s.h.forEach((e) => vis.push(s.id + '|' + e.n + '|' + e.d)));
+      const vw = body.querySelector('.view'); vw.value = view; vw.onchange = () => { view = vw.value; try { localStorage.setItem('pe_letview', view); } catch (e) {} draw(); };
+      const qi = body.querySelector('.pe-xq'); if (qi) { qi.oninput = () => { QQ = qi.value.trim().toLowerCase(); const pos = qi.selectionStart; draw(); const n = body.querySelector('.pe-xq'); n.focus(); try { n.setSelectionRange(pos, pos); } catch (e) {} }; }
+      body.querySelectorAll('details.pe-xg').forEach((d) => d.addEventListener('toggle', () => { d.open ? OPEN.add(d.dataset.g) : OPEN.delete(d.dataset.g); if (!d.open && OPEN.size === 0) OPEN.add('\u0000'); }));
+      body.querySelectorAll('.gsel').forEach((c) => { c.onclick = (e) => e.stopPropagation(); c.onchange = () => { const g = groups.find((x) => x.name === c.dataset.g); g.items.forEach((s) => s.h.forEach((e) => { const k = s.id + '|' + e.n + '|' + e.d; c.checked ? SEL.add(k) : SEL.delete(k); })); confirmDel = false; draw(); }; });
+      body.querySelectorAll('.gcard').forEach((b) => b.onclick = (e) => { e.preventDefault(); e.stopPropagation(); ov.remove(); contractorCard(b.dataset.g.split(' + ')[0]); });
       const all = body.querySelector('.all'); all.checked = vis.length > 0 && vis.every((k) => SEL.has(k)); all.disabled = !vis.length;
       all.onchange = () => { vis.forEach((k) => all.checked ? SEL.add(k) : SEL.delete(k)); confirmDel = false; draw(); };
       body.querySelectorAll('.one').forEach((c) => c.onchange = () => { c.checked ? SEL.add(c.dataset.k) : SEL.delete(c.dataset.k); confirmDel = false; draw(); });
