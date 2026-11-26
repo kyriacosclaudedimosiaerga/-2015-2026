@@ -35,6 +35,7 @@
   Page.prototype.text = function (font, key, s, size, x, y) {
     this.ops.push(`BT 0 0 0 rg /${key} ${size} Tf ${x.toFixed(2)} ${(H - y).toFixed(2)} Td <${hex(glyphs(font, s))}> Tj ET`);
   };
+  Page.prototype.img = function (key, x, y, w, h) { this.ops.push(`q ${w.toFixed(2)} 0 0 ${h.toFixed(2)} ${x.toFixed(2)} ${(H - y - h).toFixed(2)} cm /${key} Do Q`); (this.im = this.im || new Set()).add(key); };
   Page.prototype.line = function (x1, y1, x2, y2) { this.ops.push(`0 0 0 RG 0.6 w ${x1} ${H - y1} m ${x2} ${H - y2} l S`); };
 
   async function deflate(bytes) {
@@ -66,9 +67,12 @@
     const f1 = await fontObj(F.r); const f2 = await fontObj(F.b);
     const pagesId = objs.length + 1; objs.push(null);
     const kids = [];
+    const LG = window.__PE_LOGOS__ || {}; const imgIds = {};
+    for (const p of pages) for (const k of (p.im || [])) if (!imgIds[k] && LG[k]) { const d = Uint8Array.from(atob(LG[k].b), (c) => c.charCodeAt(0)); imgIds[k] = add({dict: `<< /Type /XObject /Subtype /Image /Width ${LG[k].w} /Height ${LG[k].h} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${d.length}`, data: d}); }
     for (const p of pages) {
       const c = add(await stream('<<', enc.encode(p.ops.join('\n'))));
-      kids.push(add(`<< /Type /Page /Parent ${pagesId} 0 R /MediaBox [0 0 ${W} ${H}] /Resources << /Font << /F1 ${f1} 0 R /F2 ${f2} 0 R >> >> /Contents ${c} 0 R >>`));
+      const xo = [...(p.im || [])].filter((k) => imgIds[k]).map((k) => `/${k} ${imgIds[k]} 0 R`).join(' ');
+      kids.push(add(`<< /Type /Page /Parent ${pagesId} 0 R /MediaBox [0 0 ${W} ${H}] /Resources << /Font << /F1 ${f1} 0 R /F2 ${f2} 0 R >>${xo ? ' /XObject << ' + xo + ' >>' : ''} >> /Contents ${c} 0 R >>`));
     }
     objs[pagesId - 1] = `<< /Type /Pages /Kids [${kids.map((k) => k + ' 0 R').join(' ')}] /Count ${kids.length} >>`;
     const cat = add(`<< /Type /Catalog /Pages ${pagesId} 0 R >>`);
@@ -174,6 +178,16 @@
   }
   function addLetter(F, pages, n, d) {
     pages.push(new Page()); const st = {y: 80};
+    // λογότυπα στην κορυφή: Συντεχνία Οικοδόμων ΠΕΟ, Ο.Β.ΟΙ.Ε.Κ.-ΣΕΚ και (αν επιλεγεί) ΔΕΟΚ
+    const LG = window.__PE_LOGOS__;
+    if (LG && LG.peo && LG.sek) {
+      const keys = d.deok && LG.deok ? ['peo', 'sek', 'deok'] : ['peo', 'sek'];
+      const lh = 66, y0 = 30, pg = pages[pages.length - 1];
+      const ws = keys.map((k) => Math.min(lh * LG[k].w / LG[k].h, 105)); const hs = keys.map((k, i) => ws[i] * LG[k].h / LG[k].w);
+      const xs = keys.length === 2 ? [ML, W - MR - ws[1]] : [ML, (W - ws[1]) / 2, W - MR - ws[2]];
+      keys.forEach((k, i) => pg.img(k, xs[i], y0 + (lh - hs[i]) / 2, ws[i], hs[i]));
+      st.y = y0 + lh + 30;
+    }
     const L = letterBody(n, d);
     layout(F, pages, st, [T(d.date)], {align: 'right', after: 18});
     L.to.forEach((r, i) => layout(F, pages, st, [r], {align: 'left', size: n === 1 ? 13 : 11.5, after: i === L.to.length - 1 ? 16 : 0}));
