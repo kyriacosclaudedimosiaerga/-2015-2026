@@ -252,7 +252,7 @@
 .pe-letn label{display:flex;gap:8px;align-items:flex-start;font-weight:400;margin:0;padding:7px 9px;border:1px solid #d5dee8;border-radius:8px;cursor:pointer}
 .pe-letn input{width:auto;margin-top:3px}.pe-letact{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
 .pe-letact button{font:inherit;font-size:14px;padding:8px 14px;border-radius:8px;border:1px solid #1f4e79;cursor:pointer;background:#fff;color:#1f4e79}
-.pe-letact .go{background:#1f4e79;color:#fff}.pe-eonote{font-size:12px;color:#1e6b34;margin-top:4px;line-height:1.4}.pe-eonote a{color:#1f4e79}.pe-letact .go[disabled]{opacity:.5;cursor:default}
+.pe-letact .go{background:#1f4e79;color:#fff}.pe-fmt{display:flex;flex-direction:column;gap:6px}.pe-fmt label{display:flex;gap:8px;align-items:center;font-weight:400;margin:0;padding:8px 10px;border:1px solid #d5dee8;border-radius:8px;cursor:pointer}.pe-fmt input{width:auto}.pe-eonote{font-size:12px;color:#1e6b34;margin-top:4px;line-height:1.4}.pe-eonote a{color:#1f4e79}.pe-letact .go[disabled]{opacity:.5;cursor:default}
 .pe-bulk{max-width:680px}.pe-bulk .pe-bchk{display:flex;gap:8px;align-items:center;font-weight:500}.pe-bulk .pe-bchk input{width:auto}
 .pe-bq{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}.pe-bq button{font:inherit;font-size:12.5px;padding:4px 10px;border-radius:14px;border:1px solid #1f4e79;background:#fff;color:#1f4e79;cursor:pointer}
 .pe-bsum{margin:14px 0 6px;font-size:13.5px;padding:8px 10px;background:#eef3f8;border-radius:8px}
@@ -334,12 +334,13 @@
   // καθαρό όνομα αρχείου (κρατά ελληνικά, βγάζει χαρακτήρες που δεν επιτρέπονται)
   const fpart = (x, max) => { let t = String(x || '').replace(/[\\/:*?"<>|\u0000-\u001f]+/g, ' ').replace(/\s+/g, ' ').trim(); if (t.length > max) t = t.slice(0, max).replace(/\s+\S*$/, '').trim(); return t; };
   const fname = (n, auth, eo, date) => ['Επιστολή ' + n, fpart(auth, 60), fpart(eo, 50), String(date || '').replace(/\//g, '-')].filter(Boolean).join(' - ') + '.pdf';
-  async function savePdf(bytes, name, title) {
-    const file = new File([bytes], name, {type: 'application/pdf'});
+  async function savePdf(bytes, name, title, mime) {
+    mime = mime || 'application/pdf';
+    const file = new File([bytes], name, {type: mime});
     let dl = null;
     try { dl = window.claude && window.claude.use ? await window.claude.use('downloads') : null; } catch (e) { dl = null; }
     if (dl) {
-      try { await dl.save({filename: name, data: new Blob([bytes], {type: 'application/pdf'})}); }
+      try { await dl.save({filename: name, data: new Blob([bytes], {type: mime})}); }
       catch (e) { if (e && e.code === 'declined') return false; throw e; }
     } else if (navigator.canShare && navigator.canShare({files: [file]}) && /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)) {
       try { await navigator.share({files: [file], title}); } catch (e) { if (e.name !== 'AbortError') throw e; }
@@ -362,6 +363,73 @@
   const eoOf = (r) => String(r.contractors || '').split(';').map((x) => x.trim()).filter(Boolean).join(' και ');
   const eurF = new Intl.NumberFormat('el-GR', {style: 'currency', currency: 'EUR', maximumFractionDigits: 0});
 
+  // ---- Word (.docx) για αλλαγές πριν την εκτύπωση ----
+  const CRC = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+  const crc32 = (u) => { let c = 0xFFFFFFFF; for (let i = 0; i < u.length; i++) c = CRC[(c ^ u[i]) & 0xFF] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; };
+  function zip(files) {
+    const enc = new TextEncoder(); const parts = []; const cen = []; let off = 0;
+    const u16 = (v) => [v & 255, (v >>> 8) & 255], u32 = (v) => [v & 255, (v >>> 8) & 255, (v >>> 16) & 255, (v >>> 24) & 255];
+    for (const f of files) {
+      const name = enc.encode(f.name), data = typeof f.data === 'string' ? enc.encode(f.data) : f.data, crc = crc32(data);
+      const head = [...u32(0x04034b50), ...u16(20), ...u16(0x0800), ...u16(0), ...u16(0), ...u16(0x21), ...u32(crc), ...u32(data.length), ...u32(data.length), ...u16(name.length), ...u16(0)];
+      parts.push(new Uint8Array(head), name, data);
+      cen.push(new Uint8Array([...u32(0x02014b50), ...u16(20), ...u16(20), ...u16(0x0800), ...u16(0), ...u16(0), ...u16(0x21), ...u32(crc), ...u32(data.length), ...u32(data.length), ...u16(name.length), ...u16(0), ...u16(0), ...u16(0), ...u16(0), ...u32(0), ...u32(off)]), name);
+      off += head.length + name.length + data.length;
+    }
+    const cl = cen.reduce((a, b) => a + b.length, 0);
+    const end = new Uint8Array([...u32(0x06054b50), ...u16(0), ...u16(0), ...u16(files.length), ...u16(files.length), ...u32(cl), ...u32(off), ...u16(0)]);
+    const all = [...parts, ...cen, end]; const out = new Uint8Array(all.reduce((a, b) => a + b.length, 0)); let p = 0; all.forEach((b) => { out.set(b, p); p += b.length; });
+    return out;
+  }
+  function makeDocx(items) {
+    const X = (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/[<]/g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    const LG = window.__PE_LOGOS__ || {}; const usedImg = {}; let did = 0;
+    const run = (t, o = {}) => `<w:r><w:rPr>${o.b ? '<w:b/>' : ''}${o.u ? '<w:u w:val="single"/>' : ''}${o.sz ? `<w:sz w:val="${o.sz}"/><w:szCs w:val="${o.sz}"/>` : ''}</w:rPr><w:t xml:space="preserve">${X(t)}</w:t></w:r>`;
+    const para = (runs, o = {}) => `<w:p><w:pPr>${o.pb ? '<w:pageBreakBefore/>' : ''}<w:spacing w:before="0" w:after="${o.after == null ? 0 : o.after}" w:line="${o.line || 276}" w:lineRule="auto"/>${o.jc ? `<w:jc w:val="${o.jc}"/>` : ''}</w:pPr>${runs}</w:p>`;
+    const img = (k, wPt, hPt) => { usedImg[k] = 1; did++; const cx = Math.round(wPt * 12700), cy = Math.round(hPt * 12700);
+      return `<w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="${cx}" cy="${cy}"/><wp:docPr id="${did}" name="Logo ${did}"/><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="${did}" name="${k}.jpeg"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="rId_${k}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r>`; };
+    const NB = '<w:tblBorders><w:top w:val="nil"/><w:left w:val="nil"/><w:bottom w:val="nil"/><w:right w:val="nil"/><w:insideH w:val="nil"/><w:insideV w:val="nil"/></w:tblBorders>';
+    const table = (cols, rows, pb) => { const tw = 9026, cw = Math.floor(tw / cols.length);
+      return (pb ? para('', {pb: true}) : '') + `<w:tbl><w:tblPr><w:tblW w:w="${tw}" w:type="dxa"/>${NB}<w:tblLayout w:type="fixed"/><w:tblCellMar><w:left w:w="0" w:type="dxa"/><w:right w:w="60" w:type="dxa"/></w:tblCellMar></w:tblPr><w:tblGrid>${cols.map(() => `<w:gridCol w:w="${cw}"/>`).join('')}</w:tblGrid>` +
+        rows.map((r) => `<w:tr>${r.map((c) => `<w:tc><w:tcPr><w:tcW w:w="${cw}" w:type="dxa"/></w:tcPr>${c || '<w:p/>'}</w:tc>`).join('')}</w:tr>`).join('') + '</w:tbl>'; };
+    let body = '';
+    items.forEach((it, idx) => {
+      const n = it.n, d = it.d, L = letterBody(n, d), first = idx > 0;
+      if (LG.peo && LG.sek) {
+        const keys = d.deok && LG.deok ? ['peo', 'sek', 'deok'] : ['peo', 'sek']; const jc = keys.length === 2 ? ['left', 'right'] : ['left', 'center', 'right'];
+        const cells = keys.map((k, i) => { const h = 62, w = Math.min(h * LG[k].w / LG[k].h, 100), hh = w * LG[k].h / LG[k].w; return para(img(k, w, hh), {jc: jc[i]}); });
+        body += (first ? para('', {pb: true}) : '') + table(keys, [cells]);
+      } else if (first) body += para('', {pb: true});
+      body += para('', {after: 120}) + para(run(d.date), {jc: 'right', after: 240});
+      L.to.forEach((t, i) => { body += para(run(t.t, {b: t.b, sz: n === 1 ? 26 : 23}), {after: i === L.to.length - 1 ? 240 : 0}); });
+      body += para(run(L.salut), {after: 120});
+      if (L.subject) body += para(L.subject.map((t) => run(t.t, {b: t.b})).join(''), {jc: 'both', after: 200});
+      L.paras.forEach((p) => { body += para(p.map((t, i) => run((i ? ' ' : '') + t.t, {b: t.b})).join(''), {jc: 'both', after: 160, line: 300}); });
+      body += para('', {after: 80}) + para(run('Με τιμή'), {jc: 'center', after: 360});
+      const prov = GEN[d.district] || 'Λευκωσίας', three = !!d.deok, cols = three ? [0, 1, 2] : [0, 1], sz = three ? 20 : 22;
+      const T1 = ['Για την Συντεχνία', 'Για το Σωματείο', 'Για την Ομοσπονδία'], T2 = ['Οικοδόμων ΠΕΟ', 'Οικοδόμων ΣΕΚ', 'Οικοδόμων ΔΕΟΚ'], T3 = ['Οικοδόμων Π.Ε.Ο', 'Οικοδόμων Σ.Ε.Κ', 'Οικοδόμων Δ.Ε.Ο.Κ'];
+      body += table(cols, [cols.map((i) => para(run(T1[i], {sz})) + para(run(T2[i], {sz}), {after: 720}) + para(run('_______________________', {sz})) + para(run('Επαρ. Γραμματέας', {sz})) + para(run(T3[i], {sz})) + para(run(prov, {sz})))]);
+      body += para('', {after: 120}) + para(run('Κοινοποίηση:', {b: true, u: true, sz}), {after: 60});
+      L.cc.forEach((c) => { body += para(run(c, {sz})); });
+    });
+    const sect = '<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="720" w:right="1440" w:bottom="1080" w:left="1440" w:header="425" w:footer="425" w:gutter="0"/></w:sectPr>';
+    const doc = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"><w:body>${body}${sect}</w:body></w:document>`;
+    const styles = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="Arial" w:hAnsi="Arial" w:cs="Arial" w:eastAsia="Arial"/><w:sz w:val="23"/><w:szCs w:val="23"/><w:lang w:val="el-GR"/></w:rPr></w:rPrDefault><w:pPrDefault><w:pPr><w:spacing w:after="0" w:line="276" w:lineRule="auto"/></w:pPr></w:pPrDefault></w:docDefaults><w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/></w:style></w:styles>`;
+    const imgs = Object.keys(usedImg);
+    const rels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rIdStyles" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>${imgs.map((k) => `<Relationship Id="rId_${k}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/${k}.jpeg"/>`).join('')}</Relationships>`;
+    const files = [
+      {name: '[Content_Types].xml', data: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Default Extension="jpeg" ContentType="image/jpeg"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/><Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/></Types>'},
+      {name: '_rels/.rels', data: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>'},
+      {name: 'word/document.xml', data: doc}, {name: 'word/styles.xml', data: styles}, {name: 'word/_rels/document.xml.rels', data: rels},
+    ].concat(imgs.map((k) => ({name: 'word/media/' + k + '.jpeg', data: Uint8Array.from(atob(LG[k].b), (c) => c.charCodeAt(0))})));
+    return {bytes: zip(files), label: items.length ? letterBody(items[items.length - 1].n, items[items.length - 1].d).label : ''};
+  }
+  const DOCX = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+  const getFmt = () => { try { return localStorage.getItem('pe_letfmt') || 'docx'; } catch (e) { return 'docx'; } };
+  const fmtHTML = () => `<label>Μορφή αρχείου</label><div class="pe-fmt"><label><input type="radio" name="pe-fmt" value="docx"> <b>Word (.docx)</b> — για αλλαγές πριν την εκτύπωση</label><label><input type="radio" name="pe-fmt" value="pdf"> <b>PDF</b> — έτοιμο για εκτύπωση</label></div>`;
+  const fmtInit = (ov) => { const f = getFmt(); ov.querySelectorAll('[name=pe-fmt]').forEach((x) => { x.checked = x.value === f; }); };
+  const fmtGet = (ov) => { const x = ov.querySelector('[name=pe-fmt]:checked'); const f = x ? x.value : 'docx'; try { localStorage.setItem('pe_letfmt', f); } catch (e) {} return f; };
+
   // ---- Μαζικές επιστολές: ίδια επιστολή σε όλα τα έργα πάνω από ένα ποσό ----
   function openBulk() {
     const ov = document.createElement('div'); ov.className = 'pe-letov';
@@ -378,10 +446,12 @@
       <label class="pe-bchk"><input type="checkbox" name="deok"> Προσθήκη ΔΕΟΚ στις υπογραφές</label>
       <div class="pe-bsum"></div><div class="pe-blist"></div>
       <div class="pe-letnote">Η επαρχία στις υπογραφές μπαίνει αυτόματα από κάθε έργο. Για την Επιστολή 2 η διεύθυνση της εταιρείας μπαίνει αυτόματα από τον Έφορο Εταιρειών (εγγεγραμμένο γραφείο)· όπου δεν βρεθεί, μένει κενή. Μετά τη δημιουργία, κάθε έργο σημειώνεται «τυπώθηκε & στάλθηκε» και καταγράφεται στο αρχείο.</div>
-      <div class="pe-letact"><button type="button" class="cancel">Άκυρο</button><button type="button" class="go">Δημιουργία PDF</button></div></div>`;
+      ${fmtHTML()}
+      <div class="pe-letact"><button type="button" class="cancel">Άκυρο</button><button type="button" class="go">Δημιουργία</button></div></div>`;
     const q = (x) => ov.querySelector(x);
     q('[name=min]').value = mv; q('[name=date]').value = today();
     try { q('[name=deok]').checked = localStorage.getItem('pe_deok') === '1'; } catch (e) {}
+    fmtInit(ov);
     let list = [], off = new Set();
     const num = () => +String(q('[name=min]').value).replace(/[^\d]/g, '') || 0;
     const draw = () => {
@@ -393,7 +463,7 @@
       q('.pe-bsum').innerHTML = list.length ? `<b>${sel.length}</b> από ${list.length} έργα επιλεγμένα · συνολική αξία <b>${eurF.format(tot)}</b>${sel.length > 300 ? ' · <span style="color:#b3261e">πάνω από 300 — μειώστε με μεγαλύτερο ποσό ή φίλτρα</span>' : ''}` : 'Κανένα έργο με αυτά τα κριτήρια.';
       q('.pe-blist').innerHTML = list.slice(0, 500).map((r) => `<label><input type="checkbox" data-id="${r.id}" ${off.has(String(r.id)) ? '' : 'checked'}><span><b>${eurF.format(r.awarded_value)}</b> · ${String(r.title).replace(/[<]/g, '&lt;').slice(0, 110)}<small>${[eoOf(r), r.district].filter(Boolean).join(' · ').replace(/[<]/g, '&lt;')}${n === 2 ? ((eoInfo(r) || {}).addr ? ' · 📍 ' + eoInfo(r).addr.replace(/[<]/g, '&lt;') : ' · <span style="color:#b3261e">χωρίς διεύθυνση</span>') : ''}</small></span></label>`).join('');
       q('.pe-blist').querySelectorAll('input').forEach((c) => c.onchange = () => { c.checked ? off.delete(c.dataset.id) : off.add(c.dataset.id); draw(); });
-      const go = q('.go'); go.disabled = !sel.length || sel.length > 300; go.textContent = 'Δημιουργία PDF (' + sel.length + ' επιστολές)';
+      const go = q('.go'); go.disabled = !sel.length || sel.length > 300; go.textContent = 'Δημιουργία (' + sel.length + ' επιστολές)';
     };
     ov.querySelectorAll('.pe-bq button').forEach((b) => b.onclick = () => { q('[name=min]').value = b.dataset.v; off.clear(); draw(); });
     ov.querySelectorAll('[name=pe-bn],[name=flt],[name=skip]').forEach((x) => x.addEventListener('change', () => { off.clear(); draw(); }));
@@ -407,10 +477,11 @@
       try { localStorage.setItem('pe_bulkmin', String(num())); localStorage.setItem('pe_deok', deok ? '1' : '0'); } catch (e) {}
       const items = sel.map((r) => ({r, n, d: {project: r.title, contractor: eoOf(r), authority: r.authority, address: n === 2 ? ((eoInfo(r) || {}).addr || '') : '', district: GEN[r.district] ? r.district : dd, date, deok}}));
       try {
-        const {bytes, label} = await makeLetters(items, 'Επιστολή ' + n + ' — ' + sel.length + ' έργα');
+        const fmt = fmtGet(ov);
+        const {bytes, label} = fmt === 'docx' ? makeDocx(items) : await makeLetters(items, 'Επιστολή ' + n + ' — ' + sel.length + ' έργα');
         const auths = Array.from(new Set(sel.map((r) => r.authority))), eos = Array.from(new Set(sel.map((r) => eoOf(r))));
         const name = fname(n, auths.length === 1 ? auths[0] : auths.length + ' Αρχές', eos.length === 1 ? eos[0] : eos.length + ' ανάδοχοι', date).replace('.pdf', ' (' + sel.length + ' έργα).pdf');
-        if (!(await savePdf(bytes, name, 'Επιστολή ' + n + ' — ' + sel.length + ' έργα'))) { btn.disabled = false; draw(); return; }
+        if (!(await savePdf(bytes, fmt === 'docx' ? name.replace(/\.pdf$/, '.docx') : name, 'Επιστολή ' + n + ' — ' + sel.length + ' έργα', fmt === 'docx' ? DOCX : null))) { btn.disabled = false; draw(); return; }
         const h = getH(), u = (window.peLogCfg && window.peLogCfg.user) || '';
         items.forEach((it) => { (h[it.r.id] = h[it.r.id] || []).push({n, d: date, u, t: Date.now()}); }); setH(h);
         if (window.peLog) {
@@ -439,8 +510,9 @@
       <label>Επαρχία (για τις υπογραφές)</label><select name="district">${Object.keys(GEN).map((k) => `<option>${k}</option>`).join('')}</select>
       <label>Ημερομηνία</label><input name="date">
       <label class="pe-deok" style="display:flex;gap:8px;align-items:center;font-weight:600;margin-top:12px"><input type="checkbox" name="deok" style="width:auto"> Προσθήκη ΔΕΟΚ στις υπογραφές (3 υπογραφές: ΠΕΟ – ΣΕΚ – ΔΕΟΚ)</label>
-      <div class="pe-letnote">Θα δημιουργηθεί PDF για εκτύπωση και υπογραφή. Η έκδοση καταγράφεται στο αρχείο (ποια επιστολή, για ποιο έργο, πότε, από ποιον).</div>
-      <div class="pe-letact"><button type="button" class="cancel">Άκυρο</button><button type="button" class="go">Δημιουργία PDF</button></div></div>`;
+      ${fmtHTML()}
+      <div class="pe-letnote">Το Word ανοίγει για αλλαγές πριν την εκτύπωση· το PDF είναι έτοιμο για εκτύπωση. Η έκδοση καταγράφεται στο αρχείο (ποια επιστολή, για ποιο έργο, πότε, από ποιον).</div>
+      <div class="pe-letact"><button type="button" class="cancel">Άκυρο</button><button type="button" class="go">Δημιουργία</button></div></div>`;
     const q = (s) => ov.querySelector(s);
     q('.sub').textContent = r.title.slice(0, 160) + (prev.length ? ' — ήδη: ' + prev.map((e) => 'Επ.' + e.n + ' ' + e.d).join(', ') : '');
     q('[name=project]').value = r.title; q('[name=contractor]').value = eo; q('[name=authority]').value = r.authority;
@@ -448,6 +520,7 @@
     { const ei = eoInfo(r), nt = q('.pe-eonote'); const esc = (x) => String(x).replace(/[&<>"]/g, (c) => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c]));
       if (ei && ei.addr) { q('[name=address]').value = ei.addr; nt.innerHTML = '✔ Εγγεγραμμένο γραφείο από τον <b>Έφορο Εταιρειών</b>' + (ei.reg ? ' (ΗΕ ' + esc(ei.reg) + ')' : '') + (eoDate() ? ' · στοιχεία ' + esc(eoDate()) : '') + (ei.rname ? '<br><span style="color:#8a6d00">Πιθανή αντιστοίχιση με «' + esc(ei.rname) + '» — ελέγξτε την.</span>' : '') + (ei.active ? '' : '<br><span style="color:#b3261e">⚠ Η εταιρεία δεν εμφανίζεται ως «Εγγεγραμμένη» στο μητρώο — ελέγξτε την.</span>') + ' · <a href="' + EOSEARCH + '" target="_blank" rel="noopener">έλεγχος</a>'; }
       else { nt.innerHTML = 'Δεν βρέθηκε στο μητρώο του Εφόρου (π.χ. φυσικό πρόσωπο ή κοινοπραξία). <a href="' + EOSEARCH + '" target="_blank" rel="noopener">Αναζήτηση στον Έφορο Εταιρειών</a> ή γράψτε τη διεύθυνση.'; } } q('[name=date]').value = today(); try { q('[name=deok]').checked = localStorage.getItem('pe_deok') === '1'; } catch (e) {}
+    fmtInit(ov);
     ov.addEventListener('click', (e) => { if (e.target === ov) ov.remove(); });
     q('.cancel').onclick = () => ov.remove();
     q('.go').onclick = async () => {
@@ -456,13 +529,14 @@
       const d = {project: q('[name=project]').value.trim(), contractor: q('[name=contractor]').value.trim(), authority: q('[name=authority]').value.trim(), address: q('[name=address]').value.trim(), district: q('[name=district]').value, date: q('[name=date]').value.trim(), deok: q('[name=deok]').checked};
       try { localStorage.setItem('pe_deok', d.deok ? '1' : '0'); } catch (e) {}
       try {
-        const {bytes, label} = await makeLetter(n, d);
-        const name = fname(n, d.authority, d.contractor, d.date);
-        if (!(await savePdf(bytes, name, 'Επιστολή ' + n))) { btn.disabled = false; btn.textContent = 'Δημιουργία PDF'; return; }
+        const fmt = fmtGet(ov);
+        const {bytes, label} = fmt === 'docx' ? makeDocx([{n, d}]) : await makeLetter(n, d);
+        const name = fname(n, d.authority, d.contractor, d.date).replace(/\.pdf$/, fmt === 'docx' ? '.docx' : '.pdf');
+        if (!(await savePdf(bytes, name, 'Επιστολή ' + n, fmt === 'docx' ? DOCX : null))) { btn.disabled = false; btn.textContent = 'Δημιουργία'; return; }
         const h = getH(); (h[r.id] = h[r.id] || []).push({n, d: d.date, u: (window.peLogCfg && window.peLogCfg.user) || '', t: Date.now()}); setH(h);
         if (window.peLog) window.peLog('Επιστολή ' + n, 'Προς: ' + label + ' · Έργο: ' + d.project.slice(0, 160) + ' · Ανάδοχος: ' + d.contractor + ' · Αρχή: ' + d.authority + ' · Επαρχία: ' + d.district + ' · Υπογραφές: ' + (d.deok ? 'ΠΕΟ, ΣΕΚ, ΔΕΟΚ' : 'ΠΕΟ, ΣΕΚ') + ' · Ημ/νία επιστολής: ' + d.date + ' · CFT ' + r.id);
         ov.remove(); decorate(); try { document.dispatchEvent(new Event('pe-letters')); } catch (e) {}
-      } catch (e) { alert('Δεν ήταν δυνατή η δημιουργία της επιστολής. ' + (e && e.message ? e.message : '')); btn.disabled = false; btn.textContent = 'Δημιουργία PDF'; }
+      } catch (e) { alert('Δεν ήταν δυνατή η δημιουργία της επιστολής. ' + (e && e.message ? e.message : '')); btn.disabled = false; btn.textContent = 'Δημιουργία'; }
     };
     const sync = () => { const n = ov.querySelector('[name=pe-n]:checked').value; ov.querySelectorAll('.addr').forEach((x) => { x.style.display = n === '2' ? '' : 'none'; }); };
     ov.querySelectorAll('[name=pe-n]').forEach((x) => x.addEventListener('change', sync)); sync();
