@@ -152,27 +152,40 @@
       ${rs.length > 200 ? '<p class="pe-letnote">Φαίνονται τα 200 πιο πρόσφατα.</p>' : ''}`;
     body.querySelector('.flt').onclick = () => { window.dash.setParams({eo: name}); ov.remove(); };
     log('Καρτέλα αναδόχου', name);
-    const shTxt = () => {
+    const shTxt = (max) => {
+      max = max || 60000;
       const A = (window.__EOADDR && window.__EOADDR.a) || {}, e = A[name];
-      const L1 = ['📇 Ανάδοχος: ' + name];
-      if (e && e[0]) L1.push('Αρ. εγγραφής: ' + e[0] + (e[1] ? '' : ' (μη ενεργή)'));
-      if (e && e[2]) L1.push('Διεύθυνση (Έφορος Εταιρειών): ' + e[2]);
-      L1.push('Δημόσια έργα ' + (yrs.length ? yrs[0] + '–' + yrs[yrs.length - 1] : '') + ': ' + int.format(rs.length) + ' · Συνολική αξία: ' + eur0.format(tot));
+      const H = ['📇 *Ανάδοχος: ' + name + '*'];
+      if (e && e[3] && e[3] !== name) H.push('Επωνυμία στον Έφορο: ' + e[3]);
+      if (e && e[0]) H.push('Αρ. εγγραφής: ' + e[0] + (e[1] ? '' : ' (μη ενεργή)'));
+      if (e && e[2]) H.push('Διεύθυνση (Έφορος Εταιρειών): ' + e[2]);
+      H.push('', '*Σύνολο δημόσιων έργων*' + (yrs.length ? ' (' + yrs[0] + (yrs[0] !== yrs[yrs.length - 1] ? '–' + yrs[yrs.length - 1] : '') + ')' : '') + ': ' + int.format(rs.length));
+      H.push('Συνολική αξία (μερίδιό του): ' + eur0.format(tot));
+      if (rs.length) H.push('Μέση αξία: ' + eur0.format(tot / rs.length));
+      const lst = (m, sort) => Array.from(m, ([k, o]) => ({k, ...o})).sort(sort || ((a, b) => b.v - a.v)).map((d) => '• ' + d.k + ': ' + eur0.format(d.v) + ' (' + int.format(d.n) + ')');
+      H.push('', '*Ανά έτος*', ...lst(grp((r) => r.award_month.slice(0, 4)), (a, b) => a.k.localeCompare(b.k)));
+      H.push('', '*Ανά επαρχία*', ...lst(grp((r) => r.district || 'Δεν προσδιορίζεται')));
+      H.push('', '*Αναθέτουσες Αρχές*', ...lst(grp((r) => r.authority)).slice(0, 10));
+      if (lets.length) {
+        H.push('', '*Επιστολές ΠΕΟ–ΣΕΚ που στάλθηκαν (' + int.format(lets.length) + ')*');
+        lets.slice().sort((a, b) => (parseD(b.d) || 0) - (parseD(a.d) || 0)).forEach((x) => H.push('• ' + x.d + ' · Επιστολή ' + x.n + ' · ' + String(x.r.title || '').slice(0, 80)));
+      }
       const rec = rs.slice().sort((a, b) => String(b.awarded).localeCompare(String(a.awarded)));
-      L1.push('', 'Πιο πρόσφατα έργα:');
-      rec.slice(0, 5).forEach((r) => {
+      H.push('', '*Έργα (' + int.format(rec.length) + ')*');
+      const T = ['', 'Δημόσια Έργα (ΠΕΟ): https://tinyurl.com/Dimosiaerga2015-today'];
+      let out = H.join('\n'), n = 0;
+      for (const r of rec) {
         const ti = String(r.title || '').replace(/\s+/g, ' ').trim();
-        L1.push('• ' + dl(r.awarded) + ' · ' + (ti.length > 110 ? ti.slice(0, 107) + '…' : ti));
-        L1.push('  ' + r.authority + ' · ' + eur0.format(share(r)) + (r.district && r.district !== 'Δεν προσδιορίζεται' ? ' · ' + r.district : ''));
-        if (r.link) L1.push('  ' + r.link);
-      });
-      if (rec.length > 5) L1.push('… και άλλα ' + int.format(rec.length - 5) + ' έργα');
-      L1.push('', 'Δημόσια Έργα (ΠΕΟ): https://tinyurl.com/Dimosiaerga2015-today');
-      return L1.join('\n');
+        const b = ['', (++n) + '. ' + dl(r.awarded) + ' · ' + ti, '   ' + r.authority + ' · ' + eur0.format(share(r)) + (r.district && r.district !== 'Δεν προσδιορίζεται' ? ' · ' + r.district : '') + (r.contractor_count > 1 ? ' · κοινοπραξία' : ''), r.link ? '   ' + r.link : ''].filter((x, i) => i < 3 || x).join('\n');
+        if (out.length + b.length + 200 > max) { out += '\n\n… και άλλα ' + int.format(rec.length - n + 1) + ' έργα (δείτε την εφαρμογή)'; break; }
+        out += b;
+      }
+      return out + '\n' + T.join('\n');
     };
+    const mob = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
     const go = (u) => { const a = document.createElement('a'); a.href = u; a.target = '_blank'; a.rel = 'noopener'; document.body.appendChild(a); a.click(); a.remove(); };
-    body.querySelector('.pe-sh.wa').onclick = () => { go('https://wa.me/?text=' + encodeURIComponent(shTxt())); log('Κοινοποίηση αναδόχου', 'WhatsApp · ' + name); };
-    body.querySelector('.pe-sh.vb').onclick = () => { go('viber://forward?text=' + encodeURIComponent(shTxt())); log('Κοινοποίηση αναδόχου', 'Viber · ' + name); };
+    body.querySelector('.pe-sh.wa').onclick = () => { const q = encodeURIComponent(shTxt(60000)); go((mob || q.length > 30000 ? 'whatsapp://send?text=' : 'https://wa.me/?text=') + q); log('Κοινοποίηση αναδόχου', 'WhatsApp · ' + name); };
+    body.querySelector('.pe-sh.vb').onclick = () => { go('viber://forward?text=' + encodeURIComponent(shTxt(6800))); log('Κοινοποίηση αναδόχου', 'Viber · ' + name); };
     const os = body.querySelector('.pe-sh.os');
     if (os) os.onclick = () => { navigator.share({title: name, text: shTxt()}).catch(() => {}); log('Κοινοποίηση αναδόχου', 'Άλλο · ' + name); };
     body.querySelector('.pe-sh.cp').onclick = (ev) => {
