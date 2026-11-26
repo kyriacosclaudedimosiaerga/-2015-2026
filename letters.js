@@ -274,14 +274,17 @@
       const r = await fetch(c.url + '?a=letters&k=' + encodeURIComponent(c.k), {cache: 'no-store'});
       const j = await r.json(); if (!Array.isArray(j)) return;
       const nd = (x) => { x = String(x || '').trim(); const a = /^(\d{1,2})\/(\d{1,2})\/(\d{4})/.exec(x); if (a) return a[1].padStart(2, '0') + '/' + a[2].padStart(2, '0') + '/' + a[3]; const t = new Date(x); return isNaN(t) ? x : String(t.getDate()).padStart(2, '0') + '/' + String(t.getMonth() + 1).padStart(2, '0') + '/' + t.getFullYear(); };
-      const m = {}; j.forEach((e) => { const id = String(e.cft || '').trim(); if (!id || !+e.n) return; (m[id] = m[id] || []).push({n: +e.n, d: nd(e.date), u: e.u || ''}); });
+      const m = {}; j.forEach((e) => { const id = String(e.cft || '').trim(); if (!id || !+e.n) return; const tm = /^(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2})/.exec(String(e.ts || '')); (m[id] = m[id] || []).push({n: +e.n, d: nd(e.date), u: e.u || '', t: tm ? new Date(+tm[3], +tm[2] - 1, +tm[1], +tm[4], +tm[5]).getTime() : undefined}); });
       REMOTE = m; decorate(); try { document.dispatchEvent(new Event('pe-letters')); } catch (e) {}
     } catch (e) {}
   }
   // διαγραμμένες επιστολές: pe_letdel = {"id|n|d": 1}, pe_letdelall = {id: ms} (όλες μέχρι εκείνη τη στιγμή)
   const LSJ = (k) => { try { return JSON.parse(localStorage.getItem(k) || '{}') || {}; } catch (e) { return {}; } };
   const pDm = (x) => { const m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})/.exec(x || ''); return m ? new Date(+m[3], +m[2] - 1, +m[1]).getTime() : 0; };
-  function isDel(id, e) { const D = LSJ('pe_letdel'); if (D[id + '|' + e.n + '|' + e.d]) return true; const A = LSJ('pe_letdelall'); return !!(A[id] && (e.t ? e.t <= A[id] : pDm(e.d) <= A[id])); }
+  // 26/11/2026 10:11: ο χρήστης ζήτησε να σβηστούν όλες οι επιστολές που υπήρχαν μέχρι τότε (σε όλες τις συσκευές)
+  const WIPE = new Date(2026, 10, 26, 10, 12).getTime();
+  try { if (localStorage.getItem('pe_wipe_20261126') !== '1') { const h = JSON.parse(localStorage.getItem('pe_letters') || '{}') || {}; Object.keys(h).forEach((id) => { h[id] = (h[id] || []).filter((e) => e.t && e.t > WIPE); if (!h[id].length) delete h[id]; }); localStorage.setItem('pe_letters', JSON.stringify(h)); localStorage.removeItem('pe_letans'); localStorage.setItem('pe_wipe_20261126', '1'); } } catch (e) {}
+  function isDel(id, e) { if (e.t ? e.t <= WIPE : pDm(e.d) <= WIPE) return true; const D = LSJ('pe_letdel'); if (D[id + '|' + e.n + '|' + e.d]) return true; const A = LSJ('pe_letdelall'); return !!(A[id] && (e.t ? e.t <= A[id] : pDm(e.d) <= A[id])); }
   // διαγραφή και από το κοινό αρχείο (Google Sheet) ώστε να μη φαίνεται σε κανέναν
   function remoteDel(items) {
     const c = window.peLogCfg; if (!c || !c.url || !items.length) return;
