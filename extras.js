@@ -49,6 +49,7 @@
 .pe-st-due{color:#b3261e;font-weight:700}.pe-st-ok{color:#1e6b34;font-weight:600}.pe-st-wait{color:#8a6d00}
 .pe-xtools{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0}
 .pe-xtools select{width:auto}
+.pe-sh.wa{background:#1f7a46;border-color:#1f7a46;color:#fff}.pe-sh.vb{background:#5b4f9e;border-color:#5b4f9e;color:#fff}
 .pe-xall{display:flex;gap:6px;align-items:center;font-size:13px;margin:0}.pe-xall input,.pe-xlk input{width:auto;margin:0}
 .pe-xlk{display:flex;gap:6px;align-items:center;font-weight:400;font-size:12.5px;margin:2px 0;cursor:pointer}
 .pe-xsmall[disabled]{opacity:.45;cursor:default}
@@ -141,7 +142,7 @@
     const ov = modal('📇 ' + name, 'Καρτέλα αναδόχου · όλα τα έτη (2015–σήμερα), ανεξάρτητα από τα φίλτρα');
     const body = ov.querySelector('.body');
     body.innerHTML = `<div class="pe-xkpis"><div><span>Έργα</span><b>${int.format(rs.length)}</b></div><div><span>Συνολική αξία (μερίδιό του)</span><b>${eurC.format(tot)}</b></div><div><span>Μέση αξία</span><b>${rs.length ? eurC.format(tot / rs.length) : '—'}</b></div><div><span>Περίοδος</span><b>${yrs.length ? yrs[0] + (yrs[0] !== yrs[yrs.length - 1] ? '–' + yrs[yrs.length - 1] : '') : '—'}</b></div><div><span>Επιστολές</span><b>${int.format(lets.length)}</b></div></div>
-      <div class="pe-xtools"><button type="button" class="pe-xsmall flt">Φίλτρο σε αυτόν τον ανάδοχο</button></div>
+      <div class="pe-xtools"><button type="button" class="pe-xsmall flt">Φίλτρο σε αυτόν τον ανάδοχο</button><button type="button" class="pe-xsmall pe-sh wa" title="Αποστολή στοιχείων αναδόχου με WhatsApp">WhatsApp</button><button type="button" class="pe-xsmall pe-sh vb" title="Αποστολή στοιχείων αναδόχου με Viber">Viber</button>${navigator.share ? '<button type="button" class="pe-xsmall pe-sh os" title="Κοινοποίηση με άλλη εφαρμογή">📤 Άλλο</button>' : ''}<button type="button" class="pe-xsmall pe-sh cp" title="Αντιγραφή κειμένου">📋 Αντιγραφή</button></div>
       <div class="pe-xsec">Ανά έτος</div>${bars(grp((r) => r.award_month.slice(0, 4)), (a, b) => a.k.localeCompare(b.k))}
       <div class="pe-xsec">Ανά επαρχία</div>${bars(grp((r) => r.district || 'Δεν προσδιορίζεται'))}
       <div class="pe-xsec">Κυριότερες Αναθέτουσες Αρχές</div>${bars(new Map(Array.from(grp((r) => r.authority)).sort((a, b) => b[1].v - a[1].v).slice(0, 5)))}
@@ -151,6 +152,35 @@
       ${rs.length > 200 ? '<p class="pe-letnote">Φαίνονται τα 200 πιο πρόσφατα.</p>' : ''}`;
     body.querySelector('.flt').onclick = () => { window.dash.setParams({eo: name}); ov.remove(); };
     log('Καρτέλα αναδόχου', name);
+    const shTxt = () => {
+      const A = (window.__EOADDR && window.__EOADDR.a) || {}, e = A[name];
+      const L1 = ['📇 Ανάδοχος: ' + name];
+      if (e && e[0]) L1.push('Αρ. εγγραφής: ' + e[0] + (e[1] ? '' : ' (μη ενεργή)'));
+      if (e && e[2]) L1.push('Διεύθυνση (Έφορος Εταιρειών): ' + e[2]);
+      L1.push('Δημόσια έργα ' + (yrs.length ? yrs[0] + '–' + yrs[yrs.length - 1] : '') + ': ' + int.format(rs.length) + ' · Συνολική αξία: ' + eur0.format(tot));
+      const rec = rs.slice().sort((a, b) => String(b.awarded).localeCompare(String(a.awarded)));
+      L1.push('', 'Πιο πρόσφατα έργα:');
+      rec.slice(0, 5).forEach((r) => {
+        const ti = String(r.title || '').replace(/\s+/g, ' ').trim();
+        L1.push('• ' + dl(r.awarded) + ' · ' + (ti.length > 110 ? ti.slice(0, 107) + '…' : ti));
+        L1.push('  ' + r.authority + ' · ' + eur0.format(share(r)) + (r.district && r.district !== 'Δεν προσδιορίζεται' ? ' · ' + r.district : ''));
+        if (r.link) L1.push('  ' + r.link);
+      });
+      if (rec.length > 5) L1.push('… και άλλα ' + int.format(rec.length - 5) + ' έργα');
+      L1.push('', 'Δημόσια Έργα (ΠΕΟ): https://tinyurl.com/Dimosiaerga2015-today');
+      return L1.join('\n');
+    };
+    const go = (u) => { const a = document.createElement('a'); a.href = u; a.target = '_blank'; a.rel = 'noopener'; document.body.appendChild(a); a.click(); a.remove(); };
+    body.querySelector('.pe-sh.wa').onclick = () => { go('https://wa.me/?text=' + encodeURIComponent(shTxt())); log('Κοινοποίηση αναδόχου', 'WhatsApp · ' + name); };
+    body.querySelector('.pe-sh.vb').onclick = () => { go('viber://forward?text=' + encodeURIComponent(shTxt())); log('Κοινοποίηση αναδόχου', 'Viber · ' + name); };
+    const os = body.querySelector('.pe-sh.os');
+    if (os) os.onclick = () => { navigator.share({title: name, text: shTxt()}).catch(() => {}); log('Κοινοποίηση αναδόχου', 'Άλλο · ' + name); };
+    body.querySelector('.pe-sh.cp').onclick = (ev) => {
+      const b = ev.currentTarget, ok = () => { b.textContent = '✓ Αντιγράφηκε'; setTimeout(() => { b.textContent = '📋 Αντιγραφή'; }, 1800); };
+      const txt = shTxt();
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(ok, () => { prompt('Αντιγράψτε το κείμενο:', txt); });
+      else { const ta = document.createElement('textarea'); ta.value = txt; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); ok(); } catch (e) {} ta.remove(); }
+    };
   }
 
   // ---------- 3. Λίστα επιστολών, υπενθύμιση 30 ημερών ----------
