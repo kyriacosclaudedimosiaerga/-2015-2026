@@ -49,6 +49,10 @@
 .pe-st-due{color:#b3261e;font-weight:700}.pe-st-ok{color:#1e6b34;font-weight:600}.pe-st-wait{color:#8a6d00}
 .pe-xtools{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0}
 .pe-xtools select{width:auto}
+.pe-xall{display:flex;gap:6px;align-items:center;font-size:13px;margin:0}.pe-xall input,.pe-xlk input{width:auto;margin:0}
+.pe-xlk{display:flex;gap:6px;align-items:center;font-weight:400;font-size:12.5px;margin:2px 0;cursor:pointer}
+.pe-xsmall[disabled]{opacity:.45;cursor:default}
+.pe-xbox .pe-xlk,.pe-xbox .pe-xall{font-weight:400!important;display:flex!important;margin:2px 0!important;white-space:nowrap}
 .pe-xsmall{font:inherit;font-size:12px;padding:3px 8px;border-radius:8px;border:1px solid #1f4e79;background:#fff;color:#1f4e79;cursor:pointer;margin:2px 4px 2px 0}
 @media (max-width:620px){.pe-xbox .hn{display:none}}
 @media (prefers-color-scheme: dark){.pe-favbtn,.pe-eocard,.pe-xchip,.pe-letlist{background:transparent}.pe-xchip{color:inherit}}`;
@@ -164,18 +168,36 @@
   function letterList() {
     const ov = modal('✉️ Επιστολές που στάλθηκαν', 'Ανά έργο, με την τελευταία επιστολή. Όταν περάσουν 30 μέρες από την 1η επιστολή χωρίς σημείωση απάντησης, το έργο φαίνεται με ⏰ και προτείνεται η επόμενη επιστολή.');
     const body = ov.querySelector('.body');
+    const SEL = new Set(); let confirmDel = false;
     const draw = () => {
       const st = letterState();
+      const keys = new Set(); st.forEach((s) => s.h.forEach((e) => keys.add(s.id + '|' + e.n + '|' + e.d))); [...SEL].forEach((k) => { if (!keys.has(k)) SEL.delete(k); });
       const sel = body.querySelector('select') ? body.querySelector('select').value : 'all';
       const list = st.filter((s) => sel === 'all' || (sel === 'due' && s.due) || (sel === 'open' && !s.answered) || (sel === 'ans' && s.answered));
-      body.innerHTML = `<div class="pe-xtools"><select><option value="all">Όλα (${st.length})</option><option value="due">⏰ Πάνω από 30 μέρες χωρίς απάντηση (${st.filter((s) => s.due).length})</option><option value="open">Χωρίς απάντηση (${st.filter((s) => !s.answered).length})</option><option value="ans">Με απάντηση (${st.filter((s) => s.answered).length})</option></select></div>
+      body.innerHTML = `<div class="pe-xtools"><select><option value="all">Όλα (${st.length})</option><option value="due">⏰ Πάνω από 30 μέρες χωρίς απάντηση (${st.filter((s) => s.due).length})</option><option value="open">Χωρίς απάντηση (${st.filter((s) => !s.answered).length})</option><option value="ans">Με απάντηση (${st.filter((s) => s.answered).length})</option></select>
+        <label class="pe-xall"><input type="checkbox" class="all"> Επιλογή όλων</label>
+        <button type="button" class="pe-xsmall mdel" style="border-color:#b3261e;color:${confirmDel ? '#fff' : '#b3261e'};background:${confirmDel ? '#b3261e' : '#fff'}" ${SEL.size ? '' : 'disabled'}>${confirmDel ? '⚠ Επιβεβαίωση: διαγραφή ' + SEL.size + ' επιστολών' : '🗑 Διαγραφή επιλεγμένων (' + SEL.size + ')'}</button>${confirmDel ? '<button type="button" class="pe-xsmall mcancel">Άκυρο</button>' : ''}</div>
         ${list.length ? `<table><tr><th>Έργο</th><th>Επιστολές</th><th>Κατάσταση</th></tr>${list.map((s) => {
           const r = s.r || {};
           const status = s.answered ? `<span class="pe-st-ok">✔ Απάντηση ${esc(s.ans.d)}</span>` : s.due ? `<span class="pe-st-due">⏰ ${s.days} μέρες από την 1η επιστολή χωρίς απάντηση</span>` : `<span class="pe-st-wait">Αναμονή · ${s.days == null ? '—' : s.days + ' μέρες'}</span>`;
           const acts = (s.answered ? `<button type="button" class="pe-xsmall unans" data-id="${esc(s.id)}">Αναίρεση απάντησης</button>` : `<button type="button" class="pe-xsmall ans" data-id="${esc(s.id)}">Ήρθε απάντηση</button>`) + (s.last.n < 4 && s.r ? `<button type="button" class="pe-xsmall next" data-id="${esc(s.id)}">Επιστολή ${s.last.n + 1}</button>` : '') + `<button type="button" class="pe-xsmall del" data-id="${esc(s.id)}" style="border-color:#b3261e;color:#b3261e">🗑 Διαγραφή</button>`;
-          return `<tr><td>${r.link ? `<a href="${esc(r.link)}" target="_blank" rel="noopener">${esc((r.title || '').slice(0, 140))}</a>` : 'CFT ' + esc(s.id)}<br><small>${esc([r.contractors, r.district].filter(Boolean).join(' · '))}</small></td><td>${s.h.map((e) => `Επ. ${e.n} — ${esc(e.d)}${e.u ? ' (' + esc(e.u.split('@')[0]) + ')' : ''}`).join('<br>')}</td><td>${status}<br>${acts}</td></tr>`;
+          return `<tr><td>${r.link ? `<a href="${esc(r.link)}" target="_blank" rel="noopener">${esc((r.title || '').slice(0, 140))}</a>` : 'CFT ' + esc(s.id)}<br><small>${esc([r.contractors, r.district].filter(Boolean).join(' · '))}</small></td><td>${s.h.map((e) => { const k = s.id + '|' + e.n + '|' + e.d; return `<label class="pe-xlk"><input type="checkbox" class="one" data-k="${esc(k)}" ${SEL.has(k) ? 'checked' : ''}> Επ. ${e.n} — ${esc(e.d)}${e.u ? ' (' + esc(e.u.split('@')[0]) + ')' : ''}</label>`; }).join('')}</td><td>${status}<br>${acts}</td></tr>`;
         }).join('')}</table>` : '<p class="pe-letnote">Δεν υπάρχουν επιστολές σε αυτή την κατηγορία.</p>'}`;
-      const s0 = body.querySelector('select'); s0.value = sel; s0.onchange = draw;
+      const s0 = body.querySelector('select'); s0.value = sel; s0.onchange = () => { confirmDel = false; draw(); };
+      const vis = []; list.forEach((s) => s.h.forEach((e) => vis.push(s.id + '|' + e.n + '|' + e.d)));
+      const all = body.querySelector('.all'); all.checked = vis.length > 0 && vis.every((k) => SEL.has(k)); all.disabled = !vis.length;
+      all.onchange = () => { vis.forEach((k) => all.checked ? SEL.add(k) : SEL.delete(k)); confirmDel = false; draw(); };
+      body.querySelectorAll('.one').forEach((c) => c.onchange = () => { c.checked ? SEL.add(c.dataset.k) : SEL.delete(c.dataset.k); confirmDel = false; draw(); });
+      const mc = body.querySelector('.mcancel'); if (mc) mc.onclick = () => { confirmDel = false; draw(); };
+      body.querySelector('.mdel').onclick = () => {
+        if (!SEL.size) return;
+        if (!confirmDel) { confirmDel = true; draw(); return; }
+        const by = {}; [...SEL].forEach((k) => { const [id, n, d] = k.split('|'); (by[id] = by[id] || []).push({n: +n, d}); });
+        const cnt = SEL.size, nproj = Object.keys(by).length;
+        Object.keys(by).forEach((id) => L().delLetters(id, by[id], true));
+        log('Μαζική διαγραφή επιστολών', cnt + ' επιστολές σε ' + nproj + ' έργα · ' + Object.keys(by).map((id) => 'CFT ' + id + ' (' + by[id].map((e) => 'Επ.' + e.n + ' ' + e.d).join(', ') + ')').join(' · ').slice(0, 900));
+        SEL.clear(); confirmDel = false; L().refresh(); draw(); refresh();
+      };
       body.querySelectorAll('.ans').forEach((b) => b.onclick = () => { const s = st.find((x) => x.id === b.dataset.id); L().setAns(s.id, Math.max(...s.h.map((e) => e.n))); draw(); refresh(); });
       body.querySelectorAll('.unans').forEach((b) => b.onclick = () => { L().setAns(b.dataset.id, null); draw(); refresh(); });
       body.querySelectorAll('.del').forEach((b) => b.onclick = () => { ov.remove(); L().openDel(b.dataset.id); });

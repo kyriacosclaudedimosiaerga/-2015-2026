@@ -282,13 +282,13 @@
   const LSJ = (k) => { try { return JSON.parse(localStorage.getItem(k) || '{}') || {}; } catch (e) { return {}; } };
   const pDm = (x) => { const m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})/.exec(x || ''); return m ? new Date(+m[3], +m[2] - 1, +m[1]).getTime() : 0; };
   function isDel(id, e) { const D = LSJ('pe_letdel'); if (D[id + '|' + e.n + '|' + e.d]) return true; const A = LSJ('pe_letdelall'); return !!(A[id] && (e.t ? e.t <= A[id] : pDm(e.d) <= A[id])); }
-  function delLetters(id, list) {
+  function delLetters(id, list, quiet) {
     const D = LSJ('pe_letdel'); list.forEach((e) => { D[id + '|' + e.n + '|' + e.d] = 1; });
     try { localStorage.setItem('pe_letdel', JSON.stringify(D)); } catch (e) {}
     const h = getH(); if (h[id]) { h[id] = h[id].filter((x) => !list.some((e) => e.n === x.n && e.d === x.d)); if (!h[id].length) delete h[id]; setH(h); }
     const a = ANS(); if (a[id] && !hist(id).length) { delete a[id]; try { localStorage.setItem('pe_letans', JSON.stringify(a)); } catch (e) {} }
-    const r = rowById(id); try { window.peLog && window.peLog('Διαγραφή επιστολής', list.map((e) => 'Επ. ' + e.n + ' ' + e.d).join(', ') + ' · ' + (r ? r.title.slice(0, 160) : '') + ' · CFT ' + id); } catch (e) {}
-    decorate(); try { document.dispatchEvent(new Event('pe-letters')); } catch (e) {}
+    const r = rowById(id); if (!quiet) try { window.peLog && window.peLog('Διαγραφή επιστολής', list.map((e) => 'Επ. ' + e.n + ' ' + e.d).join(', ') + ' · ' + (r ? r.title.slice(0, 160) : '') + ' · CFT ' + id); } catch (e) {}
+    if (!quiet) { decorate(); try { document.dispatchEvent(new Event('pe-letters')); } catch (e) {} }
   }
   // μία φορά: διαγραφή των επιστολών για τα έργα της Pantazis metal ltd (αίτημα 18/11/2026)
   try { if (localStorage.getItem('pe_del_pantazis') !== '1') { const A = LSJ('pe_letdelall'), now = Date.now(); ['7111904', '8137552', '8190653', '9293060'].forEach((id) => { A[id] = now; }); localStorage.setItem('pe_letdelall', JSON.stringify(A));
@@ -595,7 +595,7 @@
       } else if (hs) hs.remove();
     });
   }
-  window.peLetters = {hist, status, setAns, openDel, rowById, allRows, openForm, ids: () => Array.from(new Set(Object.keys(REMOTE).concat(Object.keys(getH())))), desc: DESC};
+  window.peLetters = {hist, status, setAns, openDel, delLetters, refresh: () => { decorate(); try { document.dispatchEvent(new Event('pe-letters')); } catch (e) {} }, rowById, allRows, openForm, ids: () => Array.from(new Set(Object.keys(REMOTE).concat(Object.keys(getH())))), desc: DESC};
   setTimeout(loadRemote, 1500); setInterval(loadRemote, 60000);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) loadRemote(); });
   let pend = false;
