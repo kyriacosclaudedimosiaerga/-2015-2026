@@ -214,6 +214,29 @@
     return L.label;
   }
   window.peMakeLetter = makeLetter;
+  // Γενικό PDF κειμένου (π.χ. καρτέλα αναδόχου για Viber): γραμμές με *έντονα*, εσοχή όταν ξεκινούν με κενά
+  window.peTextPdf = async (title, lines) => {
+    const F = await loadFonts(); F.r.used = new Map(); F.b.used = new Map();
+    const pages = [new Page()]; const st = {y: 64};
+    const LG = window.__PE_LOGOS__;
+    if (LG && LG.peo && LG.sek) {
+      const lh = 52, y0 = 26, pg = pages[0], keys = ['peo', 'sek'];
+      const ws = keys.map((k) => Math.min(lh * LG[k].w / LG[k].h, 90)); const hs = keys.map((k, i) => ws[i] * LG[k].h / LG[k].w);
+      const xs = [ML, W - MR - ws[1]];
+      keys.forEach((k, i) => pg.img(k, xs[i], y0 + (lh - hs[i]) / 2, ws[i], hs[i]));
+      st.y = y0 + lh + 26;
+    }
+    for (let ln of lines) {
+      const ind = /^\s+/.test(ln);
+      ln = String(ln).replace(/[\u{1F000}-\u{1FFFF}☀-➿️]/gu, '').trim();
+      if (!ln) { st.y += 5; continue; }
+      const parts = ln.split('*'); const runs = [];
+      parts.forEach((s, i) => { if (s) runs.push(T(s, i % 2 === 1)); });
+      const head = /^\*/.test(ln);
+      layout(F, pages, st, runs, {align: 'left', size: head ? 11.5 : (ind ? 9 : 10), after: head ? 3 : 1, x: ind ? ML + 14 : ML, w: ind ? CW - 14 : CW});
+    }
+    return writePdf(pages, F, title || 'Έγγραφο');
+  };
 
   // ---- UI ----
   const SHORT = {1: 'Μηχανικός · μητρώο', 2: 'Ανάδοχος · Συλλ. Συμβάσεις', 3: 'Μηχανικός · καταγγελία', 4: 'Αναθέτουσα Αρχή'};

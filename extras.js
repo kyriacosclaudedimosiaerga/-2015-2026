@@ -142,7 +142,7 @@
     const ov = modal('📇 ' + name, 'Καρτέλα αναδόχου · όλα τα έτη (2015–σήμερα), ανεξάρτητα από τα φίλτρα');
     const body = ov.querySelector('.body');
     body.innerHTML = `<div class="pe-xkpis"><div><span>Έργα</span><b>${int.format(rs.length)}</b></div><div><span>Συνολική αξία (μερίδιό του)</span><b>${eurC.format(tot)}</b></div><div><span>Μέση αξία</span><b>${rs.length ? eurC.format(tot / rs.length) : '—'}</b></div><div><span>Περίοδος</span><b>${yrs.length ? yrs[0] + (yrs[0] !== yrs[yrs.length - 1] ? '–' + yrs[yrs.length - 1] : '') : '—'}</b></div><div><span>Επιστολές</span><b>${int.format(lets.length)}</b></div></div>
-      <div class="pe-xtools"><button type="button" class="pe-xsmall flt">Φίλτρο σε αυτόν τον ανάδοχο</button><button type="button" class="pe-xsmall pe-sh wa" title="Αποστολή στοιχείων αναδόχου με WhatsApp">WhatsApp</button><button type="button" class="pe-xsmall pe-sh vb" title="Αποστολή στοιχείων αναδόχου με Viber">Viber</button>${navigator.share ? '<button type="button" class="pe-xsmall pe-sh os" title="Κοινοποίηση με άλλη εφαρμογή">📤 Άλλο</button>' : ''}<button type="button" class="pe-xsmall pe-sh cp" title="Αντιγραφή κειμένου">📋 Αντιγραφή</button></div>
+      <div class="pe-xtools"><button type="button" class="pe-xsmall flt">Φίλτρο σε αυτόν τον ανάδοχο</button><button type="button" class="pe-xsmall pe-sh wa" title="Αποστολή στοιχείων αναδόχου με WhatsApp">WhatsApp</button><button type="button" class="pe-xsmall pe-sh vb" title="Αποστολή στοιχείων αναδόχου με Viber">Viber</button><button type="button" class="pe-xsmall pe-sh pdf" title="Όλα τα στοιχεία και τα έργα σε PDF">📄 PDF</button>${navigator.share ? '<button type="button" class="pe-xsmall pe-sh os" title="Κοινοποίηση με άλλη εφαρμογή">📤 Άλλο</button>' : ''}<button type="button" class="pe-xsmall pe-sh cp" title="Αντιγραφή κειμένου">📋 Αντιγραφή</button></div>
       <div class="pe-xsec">Ανά έτος</div>${bars(grp((r) => r.award_month.slice(0, 4)), (a, b) => a.k.localeCompare(b.k))}
       <div class="pe-xsec">Ανά επαρχία</div>${bars(grp((r) => r.district || 'Δεν προσδιορίζεται'))}
       <div class="pe-xsec">Κυριότερες Αναθέτουσες Αρχές</div>${bars(new Map(Array.from(grp((r) => r.authority)).sort((a, b) => b[1].v - a[1].v).slice(0, 5)))}
@@ -185,7 +185,25 @@
     const mob = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
     const go = (u) => { const a = document.createElement('a'); a.href = u; a.target = '_blank'; a.rel = 'noopener'; document.body.appendChild(a); a.click(); a.remove(); };
     body.querySelector('.pe-sh.wa').onclick = () => { const q = encodeURIComponent(shTxt(60000)); go((mob || q.length > 30000 ? 'whatsapp://send?text=' : 'https://wa.me/?text=') + q); log('Κοινοποίηση αναδόχου', 'WhatsApp · ' + name); };
-    body.querySelector('.pe-sh.vb').onclick = () => { go('viber://forward?text=' + encodeURIComponent(shTxt(6800))); log('Κοινοποίηση αναδόχου', 'Viber · ' + name); };
+    const fn = 'Ανάδοχος - ' + name.replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80) + '.pdf';
+    const mkPdf = async () => { const b = await window.peTextPdf('Καρτέλα αναδόχου - ' + name, ['*ΚΑΡΤΕΛΑ ΑΝΑΔΟΧΟΥ*', 'Δημόσια έργα από eProcurement · ' + new Date().toLocaleDateString('el-GR'), ''].concat(shTxt(1e7).split('\n'))); return new File([b], fn, {type: 'application/pdf'}); };
+    const dlFile = (f) => { const a = document.createElement('a'); a.href = URL.createObjectURL(f); a.download = f.name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 60000); };
+    const busy = async (btn, fnc) => { const t0 = btn.textContent; btn.disabled = true; btn.textContent = '…'; try { await fnc(); } catch (e) { if (!e || e.name !== 'AbortError') alert('Δεν έγινε: ' + ((e && e.message) || e)); } finally { btn.disabled = false; btn.textContent = t0; } };
+    let pre = null; try { if (mob && window.peTextPdf && shTxt(1e7).length > 1500) { pre = mkPdf(); pre.catch(() => { pre = null; }); } } catch (e) {}
+    body.querySelector('.pe-sh.pdf').onclick = (ev) => busy(ev.currentTarget, async () => { dlFile(await mkPdf()); log('Κοινοποίηση αναδόχου', 'PDF · ' + name); });
+    body.querySelector('.pe-sh.vb').onclick = (ev) => busy(ev.currentTarget, async () => {
+      // Το Viber κόβει τα μεγάλα μηνύματα: όλα τα στοιχεία πάνε ως PDF
+      const full = shTxt(1e7), sum = full.split('\n\n')[0] + '\n\n' + full.split('\n\n')[1] + '\n\nΌλα τα έργα (' + int.format(rs.length) + ') στο συνημμένο PDF.\nΔημόσια Έργα (ΠΕΟ): https://tinyurl.com/Dimosiaerga2015-today';
+      if (full.length <= 1500) { go('viber://forward?text=' + encodeURIComponent(full)); log('Κοινοποίηση αναδόχου', 'Viber · ' + name); return; }
+      const f = pre ? await pre : await mkPdf();
+      if (mob && navigator.canShare && navigator.canShare({files: [f]})) {
+        await navigator.share({files: [f], title: name, text: '📇 ' + name + ' · ' + int.format(rs.length) + ' δημόσια έργα · ' + eur0.format(tot) + ' (όλα τα στοιχεία στο PDF)'});
+        log('Κοινοποίηση αναδόχου', 'Viber PDF · ' + name); return;
+      }
+      dlFile(f);
+      alert('Το Viber δεν δέχεται τόσο μεγάλο μήνυμα, οπότε θα σταλεί η σύνοψη.\n\nΚατέβηκε το πλήρες PDF «' + f.name + '» με όλα τα έργα — επισυνάψτε το στη συνομιλία του Viber (📎).');
+      go('viber://forward?text=' + encodeURIComponent(sum)); log('Κοινοποίηση αναδόχου', 'Viber · ' + name);
+    });
     const os = body.querySelector('.pe-sh.os');
     if (os) os.onclick = () => { navigator.share({title: name, text: shTxt()}).catch(() => {}); log('Κοινοποίηση αναδόχου', 'Άλλο · ' + name); };
     body.querySelector('.pe-sh.cp').onclick = (ev) => {
